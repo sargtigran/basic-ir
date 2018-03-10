@@ -28,11 +28,13 @@ private:
     void emitProgram( Program* prog );
     void emitSubroutine( Subroutine* subr );
 
+    void emitStatement( Statement* stat );
     void emitSequence( Sequence* seq );
     void emitLet( Let* let );
     void emitInput( Input* inp );
     void emitPrint( Print* pri );
 
+    void emitIf(If* ifSt);
     //void emitIf(If* ifSt, llvm::BasicBlock* endBB = nullptr);
     //void emitWhile(While* whileSt, llvm::BasicBlock* endBB);
 
