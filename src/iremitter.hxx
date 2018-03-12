@@ -8,25 +8,24 @@
 #include <sstream>
 #include <unordered_map>
 #include <string>
+#include <memory>
 
 namespace basic {
 
 ///
 class IrEmitter {
 public:
-    IrEmitter(llvm::raw_fd_ostream& out)
+    IrEmitter( llvm::raw_fd_ostream& out )
         : context(), builder(context), outstream(out)
     {}
     ~IrEmitter()
-    {
-        //delete module;
-    }
+    {}
 
-    bool emitIrCode( Program* prog );
+    bool emitIrCode( std::shared_ptr<Program> prog );
 
 private:
-    void emitProgram( Program* prog );
-    void emitSubroutine( Subroutine* subr );
+    void emitProgram( std::shared_ptr<Program> prog );
+    void emitSubroutine( std::shared_ptr<Subroutine> subr );
 
     void emitStatement( Statement* stat );
     void emitSequence( Sequence* seq );
@@ -41,24 +40,27 @@ private:
     void emitFor( For* sfor );
     //void emitCall(Call* cal);
 
-    llvm::Value* emitExpression( Expression* expr );
-    llvm::Value* emitBinary( Binary* bin );
-    llvm::Value* emitUnary( Unary* una );
-    llvm::Value* emitText( Text* txt );
-    llvm::Constant* emitNumber( Number* num );
-    llvm::LoadInst* emitLoad( Variable* var );
+    llvm::Value* emitExpression( std::shared_ptr<Expression> expr );
+    llvm::Value* emitBinary( std::shared_ptr<Binary> bin );
+    llvm::Value* emitUnary( std::shared_ptr<Unary> una );
+    llvm::Value* emitText( std::shared_ptr<Text> txt );
+    llvm::Constant* emitNumber( std::shared_ptr<Number> num );
+    llvm::LoadInst* emitLoad( std::shared_ptr<Variable> var );
 
+    void declareLibSubr( const std::string& name, llvm::ArrayRef<llvm::Type*> patys, llvm::Type* rty );
+    void declareLibrary();
     llvm::Type* llvmType( Type type );
 
 private:
     llvm::LLVMContext context;
     llvm::IRBuilder<> builder;
 
-    llvm::Module* module = nullptr;
+    std::unique_ptr<llvm::Module> module = nullptr;
 
     llvm::raw_fd_ostream& outstream;
 
-    std::unordered_map<std::string, llvm::Value*> globaltexts;
-    std::unordered_map<std::string, llvm::Value*> varaddresses;
+    std::unordered_map<std::string,llvm::Function*> library;
+    std::unordered_map<std::string,llvm::Value*> globaltexts;
+    std::unordered_map<std::string,llvm::Value*> varaddresses;
 };
 } // namespace basic
