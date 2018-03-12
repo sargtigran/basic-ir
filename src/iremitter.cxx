@@ -143,31 +143,31 @@ void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
 }
 
 ///
-void IrEmitter::emitStatement(Statement* st)
+  void IrEmitter::emitStatement( std::shared_ptr<Statement> st )
 {
-    switch (st->kind) {
+    switch( st->kind ) {
         case NodeKind::Apply:
             break;
         case NodeKind::Sequence:
-            emitSequence(static_cast<Sequence*>(st));
+		  emitSequence(std::dynamic_pointer_cast<Sequence>(st));
             break;
         case NodeKind::Input:
-            emitInput(dynamic_cast<Input*>(st));
+		  emitInput(std::dynamic_pointer_cast<Input>(st));
             break;
         case NodeKind::Print:
-            emitPrint(dynamic_cast<Print*>(st));
+		  emitPrint(std::dynamic_pointer_cast<Print>(st));
             break;
         case NodeKind::Let:
-            emitLet(static_cast<Let*>(st));
+		  emitLet(std::dynamic_pointer_cast<Let>(st));
             break;
         case NodeKind::If:
-            emitIf(static_cast<If*>(st));
+		  emitIf(std::dynamic_pointer_cast<If>(st));
             break;
         case NodeKind::While:
             //emitWhile(static_cast<While*>(stat), endBB);
             break;
         case NodeKind::For:
-            emitFor(static_cast<For*>(st));
+		  emitFor(std::dynamic_pointer_cast<For>(st));
             break;
         case NodeKind::Call:
             break;
@@ -177,7 +177,7 @@ void IrEmitter::emitStatement(Statement* st)
  }
  
 ///
-void IrEmitter::emitSequence(Sequence* seq)
+  void IrEmitter::emitSequence( std::shared_ptr<Sequence> seq )
 {
     for( auto st : seq->items )
         emitStatement(st);
@@ -228,13 +228,8 @@ void IrEmitter::emitLet( std::shared_ptr<Let> let )
         builder.CreateStore(val, addr);
 }
 
-<<<<<<< HEAD
-//
-void IrEmitter::emitInput( Input* inp )
-=======
 ///
 void IrEmitter::emitInput( std::shared_ptr<Input> inp )
->>>>>>> master
 {
     // կանչել գրադարանային ֆունկցիա
     // input_text() կամ input_number()
@@ -248,7 +243,7 @@ void IrEmitter::emitPrint( std::shared_ptr<Print> pri )
 }
 
 //TODO լրացնել ուղղել
-void IrEmitter::emitIf(If* sif)
+void IrEmitter::emitIf( std::shared_ptr<If> sif )
 //void IrEmitter::emitIf(If* sif, llvm::BasicBlock* endBB)
 {
     // ընթացիկ ֆունկցիայի դուրս բերում
