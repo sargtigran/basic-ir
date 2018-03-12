@@ -139,11 +139,12 @@ void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
         auto rv = builder.CreateLoad(varaddresses[subr->name]);
         builder.CreateRet(rv);
     }
+
     llvm::verifyFunction(*fun);
 }
 
 ///
-  void IrEmitter::emitStatement( std::shared_ptr<Statement> st )
+void IrEmitter::emitStatement( std::shared_ptr<Statement> st )
 {
     switch( st->kind ) {
         case NodeKind::Apply:
@@ -177,40 +178,11 @@ void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
  }
  
 ///
-  void IrEmitter::emitSequence( std::shared_ptr<Sequence> seq )
+void IrEmitter::emitSequence( std::shared_ptr<Sequence> seq )
 {
     for( auto st : seq->items )
         emitStatement(st);
 }
-
-/////
-//void IrEmitter::emitSequence( Sequence* seq )
-//{
-//    for( Statement* st : seq->items ) {
-//        switch( st->kind ) {
-//            case NodeKind::Let:
-//                emitLet(dynamic_cast<Let*>(st));
-//                break;
-//            case NodeKind::Input:
-//                emitInput(dynamic_cast<Input*>(st));
-//                break;
-//            case NodeKind::Print:
-//                emitPrint(dynamic_cast<Print*>(st));
-//                break;
-//            case NodeKind::If:
-//                emitIf(dynamic_cast<If*>(st));
-//                break;
-//            case NodeKind::While:
-//                break;
-//            case NodeKind::For:
-//                break;
-//            case NodeKind::Call:
-//                break;
-//            default:
-//                break;
-//        }
-//    }
-//}
 
 ///
 void IrEmitter::emitLet( std::shared_ptr<Let> let )
@@ -250,6 +222,22 @@ void IrEmitter::emitIf( std::shared_ptr<If> sif )
     auto insertBB = builder.GetInsertBlock();
     auto fun = insertBB->getParent();
 
+#if 0
+	std::shared_ptr<Statement> sp = sif;
+	while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
+        auto cnd = emitExpression(_if->condition);
+
+		auto _tbb = llvm::BasicBlock::Create(context, "", fun);
+		//auto _ebb = llvm::BasicBlock::Create(context, "", fun);
+
+		builder.SetInsertPoint(_tbb);
+		emitStatement(_if->decision);
+		sp = _if->alternative;
+	};
+
+	if( nullptr != sp )
+        emitStatement(sp);
+#else
     // գեներացնել պայմանի օպերտորը 
     auto cnd = emitExpression(sif->condition);
 
@@ -285,6 +273,7 @@ void IrEmitter::emitIf( std::shared_ptr<If> sif )
 
     builder.SetInsertPoint(mergeBB);
     //mEmittedNodes.insert({ sif, br });
+#endif
 }
 
 /*
