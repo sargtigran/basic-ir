@@ -36,12 +36,10 @@ private:
     void emitLet( LetPtr let );
     void emitInput( InputPtr inp );
     void emitPrint( PrintPtr pri );
-
     //void emitIf(If* ifSt, llvm::BasicBlock* endBB = nullptr);
-    //void emitWhile(While* whileSt, llvm::BasicBlock* endBB);
-
     void emitFor( ForPtr sfor );
-    //void emitCall(Call* cal);
+    //void emitWhile(While* whileSt, llvm::BasicBlock* endBB);
+    void emitCall( CallPtr cal );
 
     llvm::Value* emitExpression( ExpressionPtr expr );
     llvm::Value* emitApply( ApplyPtr apy );

@@ -43,13 +43,15 @@ bool IrEmitter::emitIrCode( ProgramPtr prog )
 ///
 void IrEmitter::emitProgram( ProgramPtr prog )
 {
+    // ստեղծել LLVM-ի Module օբյեկտ՝ դրա հասցեն պահելով
+    // STL գրադարանի unique_ptr-ի մեջ։
     module = std::make_unique<llvm::Module>(prog->filename, context);
 
     // հայտարարել գրադարանային (արտաքին) ֆունկցիաները
     declareLibrary();
 
     // սեփական ֆունկցիաների հայտարարությունն ու սահմանումը
-    // պետք է առանձնացնել, որպեսզի Apply և Call գործողությունների
+    // հարմար է առանձնացնել, որպեսզի Apply և Call գործողությունների
     // գեներացիայի ժամանակ արդեն գոյություն ունենան LLVM-ի
     // Function օբյեկտները
     
@@ -62,7 +64,7 @@ void IrEmitter::emitProgram( ProgramPtr prog )
     // կամ Main անունով ֆունկցիան անվանափոխել ու
     // դարձնել մուտքի կետ
 
-    // TODO: աշխատեցնել verify pass
+    // TODO: աշխատեցնել verify pass մոդուլի համար
 
     module->print(llvm::errs(), nullptr);
     //module->print(mOut, nullptr);
@@ -71,8 +73,17 @@ void IrEmitter::emitProgram( ProgramPtr prog )
 //
 void IrEmitter::emitSubroutine( SubroutinePtr subr )
 {
-    // մոդուլից վերցնել ֆունկցիայի հայտարարությունը
+    // մոդուլից վերցնել ֆունկցիայի հայտարարությունը դրան
+    // մարմին ավելացնելու համար
     auto fun = module->getFunction(subr->name);
+
+    // TODO: քանի որ նախ գեներացվելու են ֆունկցիաների 
+    // հայտարարությունները, ապա նույն այդ ցուցակով 
+    // ամեն մի ֆունկցիայի համար գեներացվելու է մարմին,
+    // համարյա բացառված է, որ fun ցուցիչը զրոյական լինի,
+    // սակայն, կոդի ճիշտ կազմակերպվածության տեսակետից,
+    // ճիշտ կլինի, որ այս և սրա նման դեպքերում աշխատանքը
+    // շարունակվի ցուցիչի ոչ զրոյական լինելը ստուգելուց հետո
 
     // ֆունկցիայի առաջին պիտակը (ցույց է տալիս ֆունկցիայի սկիզբը)
     auto start = llvm::BasicBlock::Create(context, "start", fun);
@@ -121,10 +132,15 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
         builder.CreateStore(deva, vp);
     }
 
-    // գեներացնել ֆունկցիայի մարմինը
+    // գեներացնել ենթածրագրի մարմնի հրամանները
     emitSequence(std::dynamic_pointer_cast<Sequence>(subr->body));
 
     // ազատել տեքստային օբյեկտների զբաղեցրած հիշողությունը
+    // Յուրաքանչյուր ֆունկցիայի ավարտին պետք է ազատել
+    // տեքստային օբյեկտների զբաղեցրած հիշողությունը։ 
+    // Բացառություն պիտի լինի միայն ֆունկցիաքյի անունով 
+    // փոփոխականին կապված արժեքը, որը վերադարձվելու է
+    // ֆունկցիային կանչողին
     auto free_f = module->getFunction("free");
     for( auto vi : subr->locals ) {
         if( Type::Number == vi->type )
@@ -327,6 +343,10 @@ void IrEmitter::emitFor( ForPtr sfor )
     */
 }
 
+///
+void IrEmitter::emitCall( CallPtr cal )
+{
+}
 
 ///
 llvm::Value* IrEmitter::emitExpression( ExpressionPtr expr )
