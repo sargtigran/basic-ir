@@ -31,7 +31,7 @@ Parser::Parser( const std::string& filename )
     declareBuiltIn("SIN", { "a" }, true);
 
     // տեքստային ֆունկցիաներ
-    declareBuiltIn("MID$", { "a", "b", "c$" }, true);
+    declareBuiltIn("MID$", { "a$", "b", "c" }, true);
     declareBuiltIn("STR$", { "a" }, true);
 }
 

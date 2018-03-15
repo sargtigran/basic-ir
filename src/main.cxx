@@ -15,7 +15,7 @@ int main()
 {
     std::cout << "Parsing ..." << std::endl;
 
-    basic::Parser parser("../cases/case09.bas");
+    basic::Parser parser("../cases/case10.bas");
     auto prog = parser.parse();
 
     if( nullptr != prog ) {
