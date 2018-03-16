@@ -123,6 +123,9 @@ void TypeChecker::visitCall( CallPtr node )
 //
 void TypeChecker::visitApply( ApplyPtr node )
 {
+    // TODO: ստուգել, որ կանչվող ենթածրագիրը լինի
+    // ֆունկցիա՝ վերադարձնի արժեք
+
     auto& parameters = node->procptr->parameters;
     auto& arguments = node->arguments;
 
@@ -174,7 +177,7 @@ void TypeChecker::visitUnary( UnaryPtr node )
 {
     visitAstNode(node->subexpr);
 
-    if( Type::Number != node->type )
+    if( Type::Number != node->subexpr->type )
         throw TypeError("Ունար գործողության օպերանդը թվային չէ։");
 
     node->type = Type::Number;

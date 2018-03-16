@@ -584,4 +584,18 @@ llvm::Type* IrEmitter::llvmType( Type type )
 
     return builder.getVoidTy();
 }
+
+///
+bool IrEmitter::createsTempText( ExpressionPtr expr )
+{
+    // թվային արտահայտությունը ժամանակավոր օբյեկտ չի ստեղծում
+    if( Type::Number == expr->type )
+        return false;
+
+    // տեքստային լիտերալներն ու փոփոխականներն էլ չեն ստեղծում
+    if( NodeKind::Text == expr->kind || NodeKind::Variable == expr->kind )
+        return false;
+
+    return true;
+}
 } // namespace llvm

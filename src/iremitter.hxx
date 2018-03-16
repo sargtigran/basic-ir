@@ -55,6 +55,7 @@ private:
     void declareLibrary();
     void declareSubroutines( ProgramPtr prog );
     void defineSubroutines( ProgramPtr prog );
+    bool createsTempText( ExpressionPtr expr );
 
 private:
     llvm::LLVMContext context;
