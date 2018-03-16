@@ -181,6 +181,7 @@ void IrEmitter::emitSequence( SequencePtr seq )
             case NodeKind::For:
                 break;
             case NodeKind::Call:
+                emitCall(std::dynamic_pointer_cast<Call>(st));
                 break;
             default:
                 break;
@@ -339,6 +340,7 @@ void IrEmitter::emitFor( ForPtr sfor )
 ///
 void IrEmitter::emitCall( CallPtr cal )
 {
+    emitApply(cal->subrcall);
 }
 
 ///
@@ -405,10 +407,12 @@ llvm::LoadInst* IrEmitter::emitLoad( VariablePtr var )
 llvm::Value* IrEmitter::emitApply( ApplyPtr apy )
 {
     // գեներացնել կանչի արգումենտները
-    std::vector<llvm::Value*> argus;
+    std::vector<llvm::Value*> argus, temps;
     for( auto& ai : apy->arguments ) {
         auto ap = emitExpression(ai);
         argus.push_back(ap);
+        if( createsTempText(ai) )
+            temps.push_back(ap);
     }
 
     // կանչել ֆունկցիան ու պահել արժեքը
@@ -417,7 +421,7 @@ llvm::Value* IrEmitter::emitApply( ApplyPtr apy )
 
     // մաքրել կանչի ժամանակավոր արգումենտները
     auto free_f = module->getFunction("free");
-    for( auto ai : argus )
+    for( auto ai : temps )
         if( ai->getType()->isPointerTy() )
             builder.CreateCall(free_f, { ai });
 
