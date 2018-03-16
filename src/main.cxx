@@ -20,11 +20,8 @@ bool fileExists(const std::string& filename)
 //
 int main( int argc, char* argv[] )
 {
-    std::cout << "Parsing ..." << std::endl;
-
-
     if( argc < 2 ) {
-        std::cout << "" << std::endl;
+        std::cout << "Մուտքային ֆայլը տրված չէ։" << std::endl;
         return 0;
     }
 
@@ -44,7 +41,8 @@ int main( int argc, char* argv[] )
         if( errok ) {
             std::cout << "Lisp ..." << std::endl;
             //std::ofstream sout(std::string(argv[1]) + ".lisp");
-            basic::Lisper(std::cout).asLisp(prog);
+            //basic::Lisper(std::cout).asLisp(prog);
+            basic::IrEmitter::emitIrCode(prog);
             //sout.close();
         }
     }

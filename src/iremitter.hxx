@@ -21,7 +21,7 @@ public:
     ~IrEmitter()
     {}
 
-    bool emitIrCode( ProgramPtr prog );
+    static bool emitIrCode( ProgramPtr prog );
 
 private:
     void emitProgram( ProgramPtr prog );
@@ -33,7 +33,7 @@ private:
     void emitInput( InputPtr inp );
     void emitPrint( PrintPtr pri );
 
-    void emitIf( std::shared_ptr<If> sif );
+    void emitIf( IfPtr sif );
     //void emitIf(If* ifSt, llvm::BasicBlock* endBB = nullptr);
     //void emitWhile(While* whileSt, llvm::BasicBlock* endBB);
 

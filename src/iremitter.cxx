@@ -5,6 +5,7 @@
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Support/FileSystem.h>
 
 #include <iostream>
 #include <sstream>
@@ -34,10 +35,14 @@ std::unique_ptr<Module> llvm::parseAssemblyString(
 
 
 namespace basic {
+    
 ///
 bool IrEmitter::emitIrCode( ProgramPtr prog )
 {
-    emitProgram(prog);
+    std::error_code ec;
+    llvm::raw_fd_ostream ef("emitted.ll", ec, llvm::sys::fs::F_RW);
+    IrEmitter emitter(ef);
+    emitter.emitProgram(prog);
     return true;
 }
 
@@ -230,21 +235,23 @@ void IrEmitter::emitPrint( PrintPtr pri )
 }
 
 //TODO լրացնել ուղղել
-void IrEmitter::emitIf( std::shared_ptr<If> sif )
-//void IrEmitter::emitIf(If* sif, llvm::BasicBlock* endBB)
+void IrEmitter::emitIf( IfPtr sif )
 {
     // ընթացիկ ֆունկցիայի դուրս բերում
     auto insertBB = builder.GetInsertBlock();
     auto fun = insertBB->getParent();
+    auto _mbb = llvm::BasicBlock::Create(context, "merge", fun);
 
-#if 0
-	std::shared_ptr<Statement> sp = sif;
+#if 1
+	StatementPtr sp = sif;
 	while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
         auto cnd = emitExpression(_if->condition);
 
-		auto _tbb = llvm::BasicBlock::Create(context, "", fun);
+        auto _tbb = llvm::BasicBlock::Create(context, "then", fun, _mbb);
 		//auto _ebb = llvm::BasicBlock::Create(context, "", fun);
 
+
+        builder.CreateCondBr(cnd, _tbb, _mbb);
 		builder.SetInsertPoint(_tbb);
 		emitStatement(_if->decision);
 		sp = _if->alternative;
@@ -437,7 +444,7 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
 
     llvm::Value* ret = nullptr;
     switch (bin->opcode) {
-        /*
+        
         case Operation::None:
             break;
         case Operation::Add:
@@ -482,7 +489,7 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
         case Operation::Or:
             ret = builder.CreateOr(lhs, rhs, "or");
             break;
-        */
+        
         case Operation::Conc:
             ret = builder.CreateCall(library["text_concatenate"], {lhs, rhs}, "_temp_");
             break;
