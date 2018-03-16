@@ -35,14 +35,14 @@ std::unique_ptr<Module> llvm::parseAssemblyString(
 
 namespace basic {
 ///
-bool IrEmitter::emitIrCode( std::shared_ptr<Program> prog )
+bool IrEmitter::emitIrCode( ProgramPtr prog )
 {
     emitProgram(prog);
     return true;
 }
 
 ///
-void IrEmitter::emitProgram( std::shared_ptr<Program> prog )
+void IrEmitter::emitProgram( ProgramPtr prog )
 {
     module = std::make_unique<llvm::Module>(prog->filename, context);
 
@@ -51,12 +51,14 @@ void IrEmitter::emitProgram( std::shared_ptr<Program> prog )
     for( auto& si : prog->members )
         emitSubroutine(si);
 
+	// TODO: աշխատեցնել verify pass
+
     module->print(llvm::errs(), nullptr);
     //module->print(mOut, nullptr);
 }
 
 //
-void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
+void IrEmitter::emitSubroutine( SubroutinePtr subr )
 {
     // պարամետրերի տիպերի ցուցակի կառուցումը
     std::vector<llvm::Type*> ptypes;
@@ -92,9 +94,12 @@ void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
         arg.setName(subr->parameters[ix]);
     }
 
+    // մաքրել varaddresses ցուցակը
+    varaddresses.clear();
+
     // տեքստային օբյեկտների հասցեները
     std::list<llvm::Value*> localtexts;
-
+    
     // բոլոր լոկալ փոփոխականների, պարամետրերի 
     // և վերադարձվող արժեքի համար
     for( auto& vi : subr->locals ) {
@@ -105,32 +110,37 @@ void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
             localtexts.push_back(addr);
     }
 
-    // TODO: վերանայել, ճշտել
     // պարամետրերի արժեքները վերագրել լոկալ օբյեկտներին
     for( auto& arg : fun->args() )
         if( arg.getType()->isPointerTy() ) {
             auto parval = builder.CreateCall(library["text_clone"], { &arg });
             builder.CreateStore(parval, varaddresses[arg.getName()]);
+            localtexts.remove(varaddresses[arg.getName()]);
         }
         else
             builder.CreateStore(&arg, varaddresses[arg.getName()]);
 
-    // TODO: վերանայել, ճշտել
     // տեքստային օբյեկտների համար գեներացնել սկզբնական արժեք
     // (սա արվում է վերագրման ժամանակ հին արժեքը ջնջելու և 
     // նորը վերագրելու սիմետրիկությունն ապահովելու համար)
+    auto one = builder.getInt64(1);
     for( auto vp : localtexts ) {
-        auto deva = builder.CreateCall(library["malloc"], { builder.getInt64(1) });
+        auto deva = builder.CreateCall(library["malloc"], { one });
         builder.CreateStore(deva, vp);
     }
 
     // գեներացնել ֆունկցիայի մարմինը
     emitSequence(std::dynamic_pointer_cast<Sequence>(subr->body));
 
-    // TODO: վերանայել, ճշտել
     // ազատել տեքստային օբյեկտների զբաղեցրած հիշողությունը
-    for( auto vp : localtexts )
-        auto deva = builder.CreateCall(library["free"], { vp });
+    for( auto vi : subr->locals ) {
+        if( Type::Number == vi->type )
+            continue;
+        if( vi->name == subr->name )
+            continue;
+        auto addr = varaddresses[vi->name];
+        auto deva = builder.CreateCall(library["free"], { addr });
+    }
 
     // վերադարձվող արժեք
     if( rtype->isVoidTy() )
@@ -144,7 +154,7 @@ void IrEmitter::emitSubroutine( std::shared_ptr<Subroutine> subr )
 }
 
 ///
-void IrEmitter::emitStatement( std::shared_ptr<Statement> st )
+void IrEmitter::emitStatement( StatementPtr st )
 {
     switch( st->kind ) {
         case NodeKind::Apply:
@@ -177,19 +187,24 @@ void IrEmitter::emitStatement( std::shared_ptr<Statement> st )
      }
  }
  
-///
-void IrEmitter::emitSequence( std::shared_ptr<Sequence> seq )
+void IrEmitter::emitSequence( SequencePtr seq )
 {
     for( auto st : seq->items )
         emitStatement(st);
 }
 
 ///
-void IrEmitter::emitLet( std::shared_ptr<Let> let )
+void IrEmitter::emitLet( LetPtr let )
 {
     auto val = emitExpression(let->expr);
     auto addr = varaddresses[let->varptr->name];
     if( Type::Text == let->varptr->type ) {
+        // TODO: եթե վերագրման աջ կողմում ֆունկցիայի կանչ է կամ
+        // տեքստերի կցման `&` գործողություն, ապա ոչ թե պատճենել
+        // ժամանակավոր օբյեկտը, այլ միանգամից օգտագործել այն
+
+        // TODO: տեքստի պատճենումը կատարել միայն տեքստային լիտերալներից
+        // կամ այլ տեքստային փոփոխականներից
         auto e0 = builder.CreateCall(library["text_clone"], {val});
         builder.CreateCall(library["free"], addr);
         builder.CreateStore(e0, addr);
@@ -201,14 +216,14 @@ void IrEmitter::emitLet( std::shared_ptr<Let> let )
 }
 
 ///
-void IrEmitter::emitInput( std::shared_ptr<Input> inp )
+void IrEmitter::emitInput( InputPtr inp )
 {
     // կանչել գրադարանային ֆունկցիա
     // input_text() կամ input_number()
 }
 
 ///
-void IrEmitter::emitPrint( std::shared_ptr<Print> pri )
+void IrEmitter::emitPrint( PrintPtr pri )
 {
     // կանչել գրադարանային ֆունկցիա
     // print_text() կամ print_number()
@@ -300,7 +315,7 @@ void IrEmitter::emitWhile(While* whileSt, llvm::BasicBlock* endBB)
 */
 
 //
-void IrEmitter::emitFor( std::shared_ptr<For> sfor )
+void IrEmitter::emitFor( ForPtr sfor )
 {
     // TODO:
     // 1. գեներացնել սկզբնական արժեքի արտահայտությունը,
@@ -356,7 +371,7 @@ void IrEmitter::emitFor( std::shared_ptr<For> sfor )
 
 
 ///
-llvm::Value* IrEmitter::emitExpression( std::shared_ptr<Expression> expr )
+llvm::Value* IrEmitter::emitExpression( ExpressionPtr expr )
 {
     llvm::Value* res = nullptr;
 
@@ -385,7 +400,7 @@ llvm::Value* IrEmitter::emitExpression( std::shared_ptr<Expression> expr )
 }
 
 //
-llvm::Value* IrEmitter::emitText( std::shared_ptr<Text> txt )
+llvm::Value* IrEmitter::emitText( TextPtr txt )
 {
     // եթե տրված արժեքով տող արդեն սահմանված է գլոբալ
     // տիրույթում, ապա վերադարձնել դրա հասցեն
@@ -402,20 +417,20 @@ llvm::Value* IrEmitter::emitText( std::shared_ptr<Text> txt )
 }
 
 //
-llvm::Constant* IrEmitter::emitNumber( std::shared_ptr<Number> num )
+llvm::Constant* IrEmitter::emitNumber( NumberPtr num )
 {
     return llvm::ConstantFP::get(builder.getDoubleTy(), num->value);
 }
 
 ///
-llvm::LoadInst* IrEmitter::emitLoad( std::shared_ptr<Variable> var )
+llvm::LoadInst* IrEmitter::emitLoad( VariablePtr var )
 {
     llvm::Value* vaddr = varaddresses[var->name];
     return builder.CreateLoad(vaddr, var->name);
 }
 
 /**/
-llvm::Value* IrEmitter::emitBinary( std::shared_ptr<Binary> bin )
+llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
 {
     llvm::Value* lhs = emitExpression(bin->subexpro);
     llvm::Value* rhs = emitExpression(bin->subexpri);
