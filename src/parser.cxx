@@ -123,6 +123,10 @@ void Parser::parseSubroutine()
     auto subr = std::make_shared<Subroutine>(name, params);
     module->members.push_back(subr);
 
+	// պարամետրերն ավելացնել ենթածրագրի լոկալ անունների ցուցակում
+	for( auto& ps : subr->parameters )
+        subr->locals.push_back(std::make_shared<Variable>(ps));
+
     // մարմին
     subr->body = parseStatements();
 
@@ -256,10 +260,6 @@ StatementPtr Parser::parseIf()
         auto alte = parseStatements();
         it->alternative = alte;
     }
-
-    // TODO: եթե ELSE ճյուղը բացակայում է, ապա կարելի է կամ
-    // alternative-ին վերագրել դատարկ Sequence, կամ թողնել
-    // nullptr և գեներատորներում ստուգել
 
     match(Token::End);
     match(Token::If);

@@ -138,7 +138,7 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
     // ազատել տեքստային օբյեկտների զբաղեցրած հիշողությունը
     // Յուրաքանչյուր ֆունկցիայի ավարտին պետք է ազատել
     // տեքստային օբյեկտների զբաղեցրած հիշողությունը։ 
-    // Բացառություն պիտի լինի միայն ֆունկցիաքյի անունով 
+    // Բացառություն պիտի լինի միայն ֆունկցիայի անունով 
     // փոփոխականին կապված արժեքը, որը վերադարձվելու է
     // ֆունկցիային կանչողին
     auto free_f = module->getFunction("free");
@@ -193,24 +193,17 @@ void IrEmitter::emitLet( LetPtr let )
 {
     auto val = emitExpression(let->expr);
     auto addr = varaddresses[let->varptr->name];
+    
     if( Type::Text == let->varptr->type ) {
-        // TODO: եթե վերագրման աջ կողմում ֆունկցիայի կանչ է կամ
-        // տեքստերի կցման `&` գործողություն, ապա ոչ թե պատճենել
-        // ժամանակավոր օբյեկտը, այլ միանգամից օգտագործել այն
-
-        // TODO: տեքստի պատճենումը կատարել միայն տեքստային լիտերալներից
-        // կամ այլ տեքստային փոփոխականներից
         auto text_clone_f = module->getFunction("text_clone");
         auto free_f = module->getFunction("free");
         
-        auto e0 = builder.CreateCall(text_clone_f, {val});
         builder.CreateCall(free_f, addr);
-        builder.CreateStore(e0, addr);
-        if( val->getName().startswith("_temp_") )
-            builder.CreateCall(free_f, val);
+        if( !createsTempText(let->expr) )
+            val = builder.CreateCall(text_clone_f, { val });
     }
-    else
-        builder.CreateStore(val, addr);
+
+    builder.CreateStore(val, addr);
 }
 
 ///
@@ -420,7 +413,7 @@ llvm::Value* IrEmitter::emitApply( ApplyPtr apy )
 
     // կանչել ֆունկցիան ու պահել արժեքը
     auto callee = module->getFunction(apy->procptr->name);
-    auto calv = builder.CreateCall(callee, argus, "_temp_");
+    auto calv = builder.CreateCall(callee, argus);
 
     // մաքրել կանչի ժամանակավոր արգումենտները
     auto free_f = module->getFunction("free");
@@ -428,7 +421,7 @@ llvm::Value* IrEmitter::emitApply( ApplyPtr apy )
         if( ai->getType()->isPointerTy() )
             builder.CreateCall(free_f, { ai });
 
-        // վերադարձնել կանչի արդյունքը
+    // վերադարձնել կանչի արդյունքը
     return calv;
 }
 
@@ -488,7 +481,7 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
         */
         case Operation::Conc: {
             auto text_concatenate_f = module->getFunction("text_concatenate");
-            ret = builder.CreateCall(text_concatenate_f, {lhs, rhs}, "_temp_");
+            ret = builder.CreateCall(text_concatenate_f, { lhs, rhs });
             break;
         }
         default:

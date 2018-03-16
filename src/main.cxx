@@ -8,6 +8,7 @@
 #include "aslisp.hxx"
 #include "parser.hxx"
 #include "scanner.hxx"
+#include "typechecker.hxx"
 #include "iremitter.hxx"
 
 bool fileExists(const std::string& filename)
@@ -24,6 +25,7 @@ int main( int argc, char* argv[] )
     basic::Parser parser("../cases/case10.bas");
     auto prog = parser.parse();
 
+	/*
     if( argc < 2 ) {
         std::cout << "" << std::endl;
         return 0;
@@ -37,7 +39,8 @@ int main( int argc, char* argv[] )
     std::cout << "Parsing ..." << std::endl;
     basic::Parser parser(argv[1]);
     auto prog = parser.parse();
-
+	*/
+	
     if( nullptr != prog ) {
         std::cout << "Type checking ..." << std::endl;
         bool errok = basic::TypeChecker().check(prog);
@@ -47,6 +50,11 @@ int main( int argc, char* argv[] )
             //std::ofstream sout(std::string(argv[1]) + ".lisp");
             basic::Lisper(std::cout).asLisp(prog);
             //sout.close();
+
+			std::error_code ec;
+			llvm::raw_fd_ostream ef("emitted.ll", ec, llvm::sys::fs::F_RW);
+			std::cout << "Compiling ..." << std::endl;
+			basic::IrEmitter(ef).emitIrCode(prog);
         }
     }
 
