@@ -66,12 +66,9 @@ void IrEmitter::emitProgram( ProgramPtr prog )
     //  սահմանել սեփական ֆունկցիաները
     defineSubroutines(prog);
 
-    // TODO: գեներացնել արտաքին main() ֆունկցիա, 
-    // կամ Main անունով ֆունկցիան անվանափոխել ու
-    // դարձնել մուտքի կետ
-
     // TODO: աշխատեցնել verify pass մոդուլի համար
 
+    // DEBUG
     module->print(llvm::errs(), nullptr);
     module->print(outstream, nullptr);
 }
@@ -193,7 +190,7 @@ void IrEmitter::emitStatement( StatementPtr st )
             emitIf(std::dynamic_pointer_cast<If>(st));
             break;
         case NodeKind::While:
-            //emitWhile(static_cast<While*>(stat), endBB);
+            emitWhile(std::dynamic_pointer_cast<While>(st));
             break;
         case NodeKind::For:
             emitFor(std::dynamic_pointer_cast<For>(st));
@@ -321,28 +318,33 @@ void IrEmitter::emitIf( IfPtr sif )
 #endif
 }
 
-/*
-void IrEmitter::emitWhile(While* whileSt, llvm::BasicBlock* endBB)
+///
+void IrEmitter::emitWhile( WhilePtr swhi )
 {
-    llvm::BasicBlock* head = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
-    llvm::BasicBlock* body = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
+    auto fun = builder.GetInsertBlock()->getParent();
+    
+    auto _cond = llvm::BasicBlock::Create(context, "", fun);
+    auto _body =  llvm::BasicBlock::Create(context, "", fun);
+    auto _end = llvm::BasicBlock::Create(context, "", fun);
 
-    builder.CreateBr(head);
+    builder.CreateBr(_cond);
+    
+    placeBlock(fun, _cond);
+    builder.SetInsertPoint(_cond);
+    
+    auto coex = emitExpression(swhi->condition);
+    auto one = llvm::ConstantFP::get(builder.getDoubleTy(), 1.0);
+    coex = builder.CreateFCmpOEQ(coex, one);
+    auto br = builder.CreateCondBr(coex, _body, _end);
 
-    builder.SetInsertPoint(head);
-    auto cnd = emitExpression(whileSt->condition);
-    auto br = builder.CreateCondBr(cnd, body, endBB);
+    placeBlock(fun, _body);
+    builder.SetInsertPoint(_body);
+    emitStatement(swhi->body);
+    builder.CreateBr(_cond);
 
-    builder.SetInsertPoint(body);
-    emitStatement(whileSt->body, endBB);
-
-    if (!body->getTerminator()) {
-        builder.SetInsertPoint(body);
-        builder.CreateBr(head);
-    }
-    builder.SetInsertPoint(endBB);
+    placeBlock(fun, _end);
+    builder.SetInsertPoint(_end);
 }
-*/
 
 //
 void IrEmitter::emitFor( ForPtr sfor )
@@ -498,10 +500,7 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
     llvm::Value* rhs = emitExpression(bin->subexpri);
 
     llvm::Value* ret = nullptr;
-    switch (bin->opcode) {
-        
-        case Operation::None:
-            break;
+    switch( bin->opcode ) {
         case Operation::Add:
             ret = builder.CreateFAdd(lhs, rhs, "add");
             break;
@@ -572,6 +571,18 @@ llvm::Value* IrEmitter::emitUnary(Unary* un)
     return nullptr;
 }
 */
+
+///
+void IrEmitter::placeBlock( llvm::Function* fun, llvm::BasicBlock* bl )
+{
+    builder.ClearInsertionPoint();
+    auto _ib = builder.GetInsertBlock();
+    if( nullptr != _ib && nullptr != _ib->getParent() )
+        fun->getBasicBlockList().insertAfter(_ib->getIterator(), bl);
+    else
+        fun->getBasicBlockList().push_back(bl);
+    // TODO: builder.SerInsertPoint(bl);
+}
 
 /**/
 void IrEmitter::declareFunction( const String& name,

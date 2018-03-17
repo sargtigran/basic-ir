@@ -42,6 +42,10 @@ void TypeChecker::visitProgram( ProgramPtr node )
 //
 void TypeChecker::visitSubroutine( SubroutinePtr node )
 {
+    if( "Main" == node->name )
+        if( !node->parameters.empty() )
+            throw TypeError("Main ենթածրագիրը պարամետրեր չպետք է ունենա։");
+    
     visitAstNode(node->body);
 }
 
@@ -115,13 +119,19 @@ void TypeChecker::visitFor( ForPtr node )
 //
 void TypeChecker::visitCall( CallPtr node )
 {
-    // Ստուգել, որ ենթածրագիրը արժեք չվերադարձնի
-    // TODO: միգուցե արժե հանել այս սահմանափակումը
+    // Խուժան քայլ։ Քանի որ Call-ը նույն Apply-ն է, և
+    // տիպերի ստուգումը կատարվում է Apply օբյեկտի համար,
+    // պետք է ժամանակավորապես փոխել կանչվող ենթածրագրի
+    // hasValue դաշտը։
     auto proc = node->subrcall->procptr;
-    if( proc->hasValue )
-        throw TypeError(proc->name + " ֆունկցիան կանչված է որպես պրոցեդուրա։");
+
+    bool hv = proc->hasValue;
+    proc->hasValue = true;
 
     visitApply(node->subrcall);
+
+    // վերականգնել հին արժեքը
+    proc->hasValue = hv;
 }
 
 //

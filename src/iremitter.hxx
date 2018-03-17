@@ -38,9 +38,8 @@ private:
     void emitInput( InputPtr inp );
     void emitPrint( PrintPtr pri );
     void emitIf( IfPtr sif );
-    //void emitIf(If* ifSt, llvm::BasicBlock* endBB = nullptr);
     void emitFor( ForPtr sfor );
-    //void emitWhile(While* whileSt, llvm::BasicBlock* endBB);
+    void emitWhile( WhilePtr swhi );
     void emitCall( CallPtr cal );
 
     llvm::Value* emitExpression( ExpressionPtr expr );
@@ -51,14 +50,16 @@ private:
     llvm::Constant* emitNumber( NumberPtr num );
     llvm::LoadInst* emitLoad( VariablePtr var );
 
+  
     llvm::Type* llvmType( Type type );
+    void placeBlock( llvm::Function* fun, llvm::BasicBlock* bl );
     void declareFunction( const String& name, const TypeVector& patys,
         IrType* rty, bool external = false );
     void declareLibrary();
     void declareSubroutines( ProgramPtr prog );
     void defineSubroutines( ProgramPtr prog );
     bool createsTempText( ExpressionPtr expr );
-
+    
 private:
     llvm::LLVMContext context;
     llvm::IRBuilder<> builder;

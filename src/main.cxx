@@ -23,7 +23,7 @@ int main( int argc, char* argv[] )
 {
     std::cout << "Parsing ..." << std::endl;
 
-    basic::Parser parser("../cases/case10.bas");
+    basic::Parser parser("../cases/case11.bas");
     auto prog = parser.parse();
 
     /*
@@ -47,10 +47,9 @@ int main( int argc, char* argv[] )
         bool errok = basic::TypeChecker().check(prog);
 
         if( errok ) {
-            std::cout << "Lisp ..." << std::endl;
+            //std::cout << "Lisp ..." << std::endl;
             //std::ofstream sout(std::string(argv[1]) + ".lisp");
             //basic::Lisper(std::cout).asLisp(prog);
-            basic::IrEmitter::emitIrCode(prog);
             //sout.close();
 
             std::error_code ec;
