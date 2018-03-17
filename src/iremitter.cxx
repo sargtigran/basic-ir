@@ -249,8 +249,7 @@ void IrEmitter::emitIf( IfPtr sif )
 
         auto _tbb = llvm::BasicBlock::Create(context, "then", fun, _mbb);
 		//auto _ebb = llvm::BasicBlock::Create(context, "", fun);
-
-
+        
         builder.CreateCondBr(cnd, _tbb, _mbb);
 		builder.SetInsertPoint(_tbb);
 		emitStatement(_if->decision);
