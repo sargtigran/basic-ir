@@ -141,7 +141,7 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
     }
 
     // գեներացնել ենթածրագրի մարմնի հրամանները
-    emitSequence(std::dynamic_pointer_cast<Sequence>(subr->body));
+    emitStatement(subr->body);
 
     // ազատել տեքստային օբյեկտների զբաղեցրած հիշողությունը
     // Յուրաքանչյուր ֆունկցիայի ավարտին պետք է ազատել
@@ -167,6 +167,7 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
         builder.CreateRet(rv);
     }
 
+    // ստուգել կառուցված ֆունկցիան
     llvm::verifyFunction(*fun);
 }
 
@@ -198,6 +199,7 @@ void IrEmitter::emitStatement( StatementPtr st )
             emitFor(std::dynamic_pointer_cast<For>(st));
             break;
         case NodeKind::Call:
+            emitCall(std::dynamic_pointer_cast<Call>(st));
             break;
         default:
             break;
@@ -268,7 +270,7 @@ void IrEmitter::emitIf( IfPtr sif )
         sp = _if->alternative;
     };
 
-    // կա արդյոք else-բլոկ
+    // կա՞ արդյոք else-բլոկ
     if( nullptr != sp ) {
         auto _ebb = llvm::BasicBlock::Create(context, "merge", fun);
         builder.CreateBr(_ebb);
