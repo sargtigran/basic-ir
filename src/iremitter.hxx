@@ -26,16 +26,18 @@ public:
     ~IrEmitter()
     {}
 
-    bool emitIrCode( ProgramPtr prog );
+    static bool emitIrCode( ProgramPtr prog );
 
 private:
     void emitProgram( ProgramPtr prog );
     void emitSubroutine( SubroutinePtr subr );
 
+    void emitStatement( StatementPtr st );
     void emitSequence( SequencePtr seq );
     void emitLet( LetPtr let );
     void emitInput( InputPtr inp );
     void emitPrint( PrintPtr pri );
+    void emitIf( IfPtr sif );
     //void emitIf(If* ifSt, llvm::BasicBlock* endBB = nullptr);
     void emitFor( ForPtr sfor );
     //void emitWhile(While* whileSt, llvm::BasicBlock* endBB);

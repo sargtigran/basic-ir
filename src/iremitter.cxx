@@ -4,6 +4,8 @@
 
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Support/FileSystem.h>
 
 #include <iostream>
 #include <sstream>
@@ -33,10 +35,14 @@ std::unique_ptr<Module> llvm::parseAssemblyString(
 
 
 namespace basic {
+    
 ///
 bool IrEmitter::emitIrCode( ProgramPtr prog )
 {
-    emitProgram(prog);
+    std::error_code ec;
+    llvm::raw_fd_ostream ef("emitted.ll", ec, llvm::sys::fs::F_RW);
+    IrEmitter emitter(ef);
+    emitter.emitProgram(prog);
     return true;
 }
 
@@ -67,7 +73,7 @@ void IrEmitter::emitProgram( ProgramPtr prog )
     // TODO: աշխատեցնել verify pass մոդուլի համար
 
     module->print(llvm::errs(), nullptr);
-    //module->print(mOut, nullptr);
+    module->print(outstream, nullptr);
 }
 
 //
@@ -160,35 +166,49 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
         auto rv = builder.CreateLoad(varaddresses[subr->name]);
         builder.CreateRet(rv);
     }
+
+    llvm::verifyFunction(*fun);
+}
+
+///
+void IrEmitter::emitStatement( StatementPtr st )
+{
+    switch( st->kind ) {
+        case NodeKind::Apply:
+            break;
+        case NodeKind::Sequence:
+            emitSequence(std::dynamic_pointer_cast<Sequence>(st));
+            break;
+        case NodeKind::Input:
+            emitInput(std::dynamic_pointer_cast<Input>(st));
+            break;
+        case NodeKind::Print:
+            emitPrint(std::dynamic_pointer_cast<Print>(st));
+            break;
+        case NodeKind::Let:
+            emitLet(std::dynamic_pointer_cast<Let>(st));
+            break;
+        case NodeKind::If:
+            emitIf(std::dynamic_pointer_cast<If>(st));
+            break;
+        case NodeKind::While:
+            //emitWhile(static_cast<While*>(stat), endBB);
+            break;
+        case NodeKind::For:
+            emitFor(std::dynamic_pointer_cast<For>(st));
+            break;
+        case NodeKind::Call:
+            break;
+        default:
+            break;
+    }
 }
 
 ///
 void IrEmitter::emitSequence( SequencePtr seq )
 {
-    for( auto& st : seq->items ) {
-        switch( st->kind ) {
-            case NodeKind::Let:
-                emitLet(std::dynamic_pointer_cast<Let>(st));
-                break;
-            case NodeKind::Input:
-                emitInput(std::dynamic_pointer_cast<Input>(st));
-                break;
-            case NodeKind::Print:
-                emitPrint(std::dynamic_pointer_cast<Print>(st));
-                break;
-            case NodeKind::If:
-                break;
-            case NodeKind::While:
-                break;
-            case NodeKind::For:
-                break;
-            case NodeKind::Call:
-                emitCall(std::dynamic_pointer_cast<Call>(st));
-                break;
-            default:
-                break;
-        }
-    }
+    for( auto st : seq->items )
+        emitStatement(st);
 }
 
 ///
@@ -223,64 +243,102 @@ void IrEmitter::emitPrint( PrintPtr pri )
     // print_text() կամ print_number()
 }
 
-/*
-//
-void IrEmitter::emitIf(If* ifSt, llvm::BasicBlock* endBB)
+//TODO լրացնել ուղղել
+void IrEmitter::emitIf( IfPtr sif )
 {
-    if (getEmittedNode(ifSt)) {
-        return;
-    }
-    auto insertBB = mBuilder.GetInsertBlock();
+    // ընթացիկ ֆունկցիայի դուրս բերում
+    auto insertBB = builder.GetInsertBlock();
     auto fun = insertBB->getParent();
-    auto cnd = emitExpression(ifSt->condition);
+    auto _mbb = llvm::BasicBlock::Create(context, "else", fun);
 
-    llvm::BasicBlock* decBB = llvm::BasicBlock::Create(llvmContext, "bb", fun, endBB);
-    mBuilder.SetInsertPoint(decBB);
-    emitStatement(ifSt->decision, endBB);
+#if 1
+    StatementPtr sp = sif;
+    while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
 
-    llvm::BasicBlock* altBB = endBB;
-    if (ifSt->alternative) {
-        altBB = llvm::BasicBlock::Create(llvmContext, "bb", fun, endBB);
-        mBuilder.SetInsertPoint(altBB);
-        emitStatement(ifSt->alternative, endBB);
+        // գեներացնել պայմանի օպերտորը 
+        auto cnd = emitExpression(_if->condition);
+
+        // then֊բլոկ
+        auto _tbb = llvm::BasicBlock::Create(context, "then", fun, _mbb);
+        builder.CreateCondBr(cnd, _tbb, _mbb);
+        builder.SetInsertPoint(_tbb);
+        emitStatement(_if->decision);
+
+        // հաջորդ բլոկի մշակում
+        sp = _if->alternative;
+    };
+
+    // կա արդյոք else-բլոկ
+    if( nullptr != sp ) {
+        auto _ebb = llvm::BasicBlock::Create(context, "merge", fun);
+        builder.CreateBr(_ebb);
+        builder.SetInsertPoint(_mbb);
+        emitStatement(sp);
+        builder.CreateBr(_ebb);
+        builder.SetInsertPoint(_ebb);
+    } else {
+        builder.CreateBr(_mbb);
+        builder.SetInsertPoint(_mbb);
+    }
+#else
+    // գեներացնել պայմանի օպերտորը 
+    auto cnd = emitExpression(sif->condition);
+
+    // 
+    llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(context, "then.bb", fun);
+    llvm::BasicBlock* mergeBB = llvm::BasicBlock::Create(context, "merge.bb", fun);
+
+    // then
+    builder.SetInsertPoint(thenBB);
+    emitStatement(sif->decision);
+
+    // else
+    llvm::BasicBlock* elseBB = mergeBB;
+    if (sif->alternative) {
+        elseBB = llvm::BasicBlock::Create(context, "else.bb", fun, mergeBB);
+        builder.SetInsertPoint(elseBB);
+        emitStatement(sif->alternative);
     }
 
-    mBuilder.SetInsertPoint(insertBB);
-    auto br = mBuilder.CreateCondBr(cnd, decBB, altBB);
 
-    if (!decBB->getTerminator()) {
-        mBuilder.SetInsertPoint(decBB);
-        mBuilder.CreateBr(endBB);
+    builder.SetInsertPoint(insertBB);
+    auto br = builder.CreateCondBr(cnd, thenBB, elseBB);
+
+    if (!thenBB->getTerminator()) {
+        builder.SetInsertPoint(thenBB);
+        builder.CreateBr(mergeBB);
     }
 
-    if (!altBB->getTerminator()) {
-        mBuilder.SetInsertPoint(altBB);
-        mBuilder.CreateBr(endBB);
+    if (!elseBB->getTerminator()) {
+        builder.SetInsertPoint(elseBB);
+        builder.CreateBr(mergeBB);
     }
 
-    mBuilder.SetInsertPoint(endBB);
-    mEmittedNodes.insert({ ifSt, br });
+    builder.SetInsertPoint(mergeBB);
+    //mEmittedNodes.insert({ sif, br });
+#endif
 }
 
+/*
 void IrEmitter::emitWhile(While* whileSt, llvm::BasicBlock* endBB)
 {
-    llvm::BasicBlock* head = llvm::BasicBlock::Create(llvmContext, "bb", endBB->getParent(), endBB);
-    llvm::BasicBlock* body = llvm::BasicBlock::Create(llvmContext, "bb", endBB->getParent(), endBB);
+    llvm::BasicBlock* head = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
+    llvm::BasicBlock* body = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
 
-    mBuilder.CreateBr(head);
+    builder.CreateBr(head);
 
-    mBuilder.SetInsertPoint(head);
+    builder.SetInsertPoint(head);
     auto cnd = emitExpression(whileSt->condition);
-    auto br = mBuilder.CreateCondBr(cnd, body, endBB);
+    auto br = builder.CreateCondBr(cnd, body, endBB);
 
-    mBuilder.SetInsertPoint(body);
+    builder.SetInsertPoint(body);
     emitStatement(whileSt->body, endBB);
 
     if (!body->getTerminator()) {
-        mBuilder.SetInsertPoint(body);
-        mBuilder.CreateBr(head);
+        builder.SetInsertPoint(body);
+        builder.CreateBr(head);
     }
-    mBuilder.SetInsertPoint(endBB);
+    builder.SetInsertPoint(endBB);
 }
 */
 
@@ -298,16 +356,16 @@ void IrEmitter::emitFor( ForPtr sfor )
     // 8. շարունակել 4-րդ կետից։
 
     /*
-    llvm::BasicBlock* head = llvm::BasicBlock::Create(llvmContext, "bb", endBB->getParent(), endBB);
-    llvm::BasicBlock* body = llvm::BasicBlock::Create(llvmContext, "bb", endBB->getParent(), endBB);
-    llvm::BasicBlock* exit = llvm::BasicBlock::Create(llvmContext, "bb", endBB->getParent(), endBB);
+    llvm::BasicBlock* head = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
+    llvm::BasicBlock* body = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
+    llvm::BasicBlock* exit = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
 
     auto param_addr = getVariableAddress(forSt->parameter->name);
     auto begin = emitExpression(forSt->begin);
-    mBuilder.CreateStore(begin, param_addr);
+    builder.CreateStore(begin, param_addr);
 
     //Setting step 1 by default
-    llvm::Value* step = mBuilder.getInt32(1);
+    llvm::Value* step = builder.getInt32(1);
 
     //Looking if step is given
     if (forSt->step) {
@@ -315,27 +373,27 @@ void IrEmitter::emitFor( ForPtr sfor )
     }
 
     auto end = emitExpression(forSt->end);
-    mBuilder.CreateBr(head);
+    builder.CreateBr(head);
 
-    mBuilder.SetInsertPoint(head);
-    auto param = mBuilder.CreateLoad(param_addr);
-    auto cnd = mBuilder.CreateFCmpOLE(param, end, "le");
-    mBuilder.CreateCondBr(cnd, body, endBB);
+    builder.SetInsertPoint(head);
+    auto param = builder.CreateLoad(param_addr);
+    auto cnd = builder.CreateFCmpOLE(param, end, "le");
+    builder.CreateCondBr(cnd, body, endBB);
 
     //Handling the body
-    mBuilder.SetInsertPoint(body);
+    builder.SetInsertPoint(body);
     emitStatement(forSt->body, exit);
 
     //Incrementing the index
-    auto inc_param = mBuilder.CreateFAdd(param, step);
-    mBuilder.CreateStore(inc_param, param_addr);
+    auto inc_param = builder.CreateFAdd(param, step);
+    builder.CreateStore(inc_param, param_addr);
 
     if (!body->getTerminator()) {
-        mBuilder.SetInsertPoint(body);
-        mBuilder.CreateBr(head);
+        builder.SetInsertPoint(body);
+        builder.CreateBr(head);
     }
 
-    mBuilder.SetInsertPoint(endBB);
+    builder.SetInsertPoint(endBB);
     */
 }
 
@@ -439,52 +497,51 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
 
     llvm::Value* ret = nullptr;
     switch (bin->opcode) {
-        /*
+        
         case Operation::None:
             break;
         case Operation::Add:
-            ret = mBuilder.CreateFAdd(lhs, rhs, "add");
+            ret = builder.CreateFAdd(lhs, rhs, "add");
             break;
         case Operation::Sub:
-            ret = mBuilder.CreateFSub(lhs, rhs, "sub");
+            ret = builder.CreateFSub(lhs, rhs, "sub");
             break;
         case Operation::Mul:
-            ret = mBuilder.CreateFMul(lhs, rhs, "mul");
+            ret = builder.CreateFMul(lhs, rhs, "mul");
             break;
         case Operation::Div:
-            ret = mBuilder.CreateFDiv(lhs, rhs, "div");
+            ret = builder.CreateFDiv(lhs, rhs, "div");
             break;
         case Operation::Mod:
-            ret = mBuilder.CreateFRem(lhs, rhs, "rem");
+            ret = builder.CreateFRem(lhs, rhs, "rem");
             break;
         case Operation::Pow:
             assert("POW operator is not handled yet");
             break;
         case Operation::Eq:
-            ret = mBuilder.CreateFCmpOEQ(lhs, rhs, "eq");
+            ret = builder.CreateFCmpOEQ(lhs, rhs, "eq");
             break;
         case Operation::Ne:
-            ret = mBuilder.CreateFCmpONE(lhs, rhs, "ne");
+            ret = builder.CreateFCmpONE(lhs, rhs, "ne");
             break;
         case Operation::Gt:
-            ret = mBuilder.CreateFCmpOGT(lhs, rhs, "ne");
+            ret = builder.CreateFCmpOGT(lhs, rhs, "ne");
             break;
         case Operation::Ge:
-            ret = mBuilder.CreateFCmpOGE(lhs, rhs, "ge");
+            ret = builder.CreateFCmpOGE(lhs, rhs, "ge");
             break;
         case Operation::Lt:
-            ret = mBuilder.CreateFCmpOLT(lhs, rhs, "lt");
+            ret = builder.CreateFCmpOLT(lhs, rhs, "lt");
             break;
         case Operation::Le:
-            ret = mBuilder.CreateFCmpOLE(lhs, rhs, "le");
+            ret = builder.CreateFCmpOLE(lhs, rhs, "le");
             break;
         case Operation::And:
-            ret = mBuilder.CreateAnd(lhs, rhs, "and");
+            ret = builder.CreateAnd(lhs, rhs, "and");
             break;
         case Operation::Or:
-            ret = mBuilder.CreateOr(lhs, rhs, "or");
+            ret = builder.CreateOr(lhs, rhs, "or");
             break;
-        */
         case Operation::Conc: {
             auto text_concatenate_f = module->getFunction("text_concatenate");
             ret = builder.CreateCall(text_concatenate_f, { lhs, rhs });
@@ -503,9 +560,9 @@ llvm::Value* IrEmitter::emitUnary(Unary* un)
     llvm::Value* val = emitExpression(un->subexpr);
     switch (un->opcode) {
         case Operation::Sub:
-            return mBuilder.CreateFNeg(val, "neg");
+            return builder.CreateFNeg(val, "neg");
         case Operation::Not:
-            return mBuilder.CreateNot(val, "not");
+            return builder.CreateNot(val, "not");
         default: {
             assert("Invalid unary operation");
         }
