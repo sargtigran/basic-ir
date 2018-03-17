@@ -115,16 +115,21 @@ void TypeChecker::visitFor( ForPtr node )
 //
 void TypeChecker::visitCall( CallPtr node )
 {
-    // TODO: ստուգել, որ կանչվող ենթածրագիրը լինի
-    // պրոցեդուրա (արժեք չվերադարձնի)
+    // Ստուգել, որ ենթածրագիրը արժեք չվերադարձնի
+    // TODO: միգուցե արժե հանել այս սահմանափակումը
+    auto proc = node->subrcall->procptr;
+    if( proc->hasValue )
+        throw TypeError(proc->name + " ֆունկցիան կանչված է որպես պրոցեդուրա։");
+
     visitApply(node->subrcall);
 }
 
 //
 void TypeChecker::visitApply( ApplyPtr node )
 {
-    // TODO: ստուգել, որ կանչվող ենթածրագիրը լինի
-    // ֆունկցիա՝ վերադարձնի արժեք
+    // Ստուգել, որ կանչվող ենթածրագիրը արժեք վերադարձնի։
+    if( !node->procptr->hasValue )
+        throw TypeError(node->procptr->name + " ենթածրագիրն արժեք չի վերադարձնում։");
 
     auto& parameters = node->procptr->parameters;
     auto& arguments = node->arguments;
