@@ -59,7 +59,7 @@ void IrEmitter::emitProgram( ProgramPtr prog )
 	// TODO: աշխատեցնել verify pass
 
     module->print(llvm::errs(), nullptr);
-    //module->print(mOut, nullptr);
+    module->print(outstream, nullptr);
 }
 
 //
@@ -240,24 +240,37 @@ void IrEmitter::emitIf( IfPtr sif )
     // ընթացիկ ֆունկցիայի դուրս բերում
     auto insertBB = builder.GetInsertBlock();
     auto fun = insertBB->getParent();
-    auto _mbb = llvm::BasicBlock::Create(context, "merge", fun);
+    auto _mbb = llvm::BasicBlock::Create(context, "else", fun);
 
 #if 1
 	StatementPtr sp = sif;
 	while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
+
+        // գեներացնել պայմանի օպերտորը 
         auto cnd = emitExpression(_if->condition);
 
+        // then֊բլոկ
         auto _tbb = llvm::BasicBlock::Create(context, "then", fun, _mbb);
-		//auto _ebb = llvm::BasicBlock::Create(context, "", fun);
-        
         builder.CreateCondBr(cnd, _tbb, _mbb);
-		builder.SetInsertPoint(_tbb);
+        builder.SetInsertPoint(_tbb);
 		emitStatement(_if->decision);
-		sp = _if->alternative;
+		
+        // հաջորդ բլոկի մշակում
+        sp = _if->alternative;
 	};
 
-	if( nullptr != sp )
+    // կա արդյոք else-բլոկ
+	if( nullptr != sp ) {
+        auto _ebb = llvm::BasicBlock::Create(context, "merge", fun);
+        builder.CreateBr(_ebb);
+        builder.SetInsertPoint(_mbb);
         emitStatement(sp);
+        builder.CreateBr(_ebb);
+        builder.SetInsertPoint(_ebb);
+    } else {
+        builder.CreateBr(_mbb);
+        builder.SetInsertPoint(_mbb);
+    }
 #else
     // գեներացնել պայմանի օպերտորը 
     auto cnd = emitExpression(sif->condition);
