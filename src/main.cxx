@@ -23,7 +23,7 @@ int main( int argc, char* argv[] )
 {
     std::cout << "Parsing ..." << std::endl;
 
-    basic::Parser parser("../cases/case11.bas");
+    basic::Parser parser("../cases/case12.bas");
     auto prog = parser.parse();
 
     /*
@@ -52,10 +52,8 @@ int main( int argc, char* argv[] )
             //basic::Lisper(std::cout).asLisp(prog);
             //sout.close();
 
-            std::error_code ec;
-            llvm::raw_fd_ostream ef("emitted.ll", ec, llvm::sys::fs::F_RW);
             std::cout << "Compiling ..." << std::endl;
-            basic::IrEmitter(ef).emitIrCode(prog);
+            basic::IrEmitter().emitIrCode(prog);
         }
     }
 

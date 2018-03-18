@@ -20,13 +20,12 @@ public:
     using TypeVector = std::vector<IrType*>;
 
 public:
-    IrEmitter( llvm::raw_fd_ostream& out )
-        : context(), builder(context), outstream(out)
+    IrEmitter()
+        : context(), builder(context)
     {}
-    ~IrEmitter()
-    {}
+    ~IrEmitter() = default;
 
-    static bool emitIrCode( ProgramPtr prog );
+    bool emitIrCode( ProgramPtr prog );
 
 private:
     void emitProgram( ProgramPtr prog );
@@ -66,7 +65,7 @@ private:
 
     std::unique_ptr<llvm::Module> module = nullptr;
 
-    llvm::raw_fd_ostream& outstream;
+    ////llvm::raw_fd_ostream& outstream;
 
     std::unordered_map<String,llvm::Value*> globaltexts;
     std::unordered_map<String,llvm::Value*> varaddresses;

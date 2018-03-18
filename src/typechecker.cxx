@@ -102,18 +102,21 @@ void TypeChecker::visitWhile( WhilePtr node )
 //
 void TypeChecker::visitFor( ForPtr node )
 {
-    visitAstNode(node->begin);
-    visitAstNode(node->end);
-    visitAstNode(node->body);
-
     if( Type::Number != node->parameter->type )
         throw TypeError("Պարամետրով ցիկլի պարամետրի տիպը թվային չէ։");
 
+    visitAstNode(node->begin);
     if( Type::Number != node->begin->type )
         throw TypeError("Պարամետրով ցիկլի պարամետրի սկզբնական արժեքի տիպը թվային չէ։");
 
-    if (Type::Number != node->end->type)
+    visitAstNode(node->end);
+    if( Type::Number != node->end->type )
         throw TypeError("Պարամետրով ցիկլի պարամետրի վերջնական արժեքի տիպը թվային չէ։");
+
+    if( 0 == node->step->value )
+        throw TypeError("պարամետրով ցիկլի քայլը զրո է։");
+    
+    visitAstNode(node->body);
 }
 
 //

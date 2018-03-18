@@ -39,10 +39,18 @@ namespace basic {
 ///
 bool IrEmitter::emitIrCode( ProgramPtr prog )
 {
-    std::error_code ec;
-    llvm::raw_fd_ostream ef("emitted.ll", ec, llvm::sys::fs::F_RW);
-    IrEmitter emitter(ef);
-    emitter.emitProgram(prog);
+    try {
+        emitProgram(prog);
+        // TODO: ստացվող ֆայլի անունը կառուցել .bas ֆայլից
+        // TODO: module-ը արտածել outstream-ի մեջ
+        // օգտագործել PrintModulePass
+        /* DEBUG */ module->print(llvm::errs(), nullptr);
+        // module->print(outstream, nullptr);
+    }
+    catch(...) {
+        return false;
+    }
+    
     return true;
 }
 
@@ -67,10 +75,6 @@ void IrEmitter::emitProgram( ProgramPtr prog )
     defineSubroutines(prog);
 
     // TODO: աշխատեցնել verify pass մոդուլի համար
-
-    // DEBUG
-    module->print(llvm::errs(), nullptr);
-    module->print(outstream, nullptr);
 }
 
 //
@@ -321,84 +325,81 @@ void IrEmitter::emitIf( IfPtr sif )
 ///
 void IrEmitter::emitWhile( WhilePtr swhi )
 {
-    auto fun = builder.GetInsertBlock()->getParent();
+    auto _fun = builder.GetInsertBlock()->getParent();
     
-    auto _cond = llvm::BasicBlock::Create(context, "", fun);
-    auto _body =  llvm::BasicBlock::Create(context, "", fun);
-    auto _end = llvm::BasicBlock::Create(context, "", fun);
+    auto _cond = llvm::BasicBlock::Create(context, "", _fun);
+    auto _body = llvm::BasicBlock::Create(context, "", _fun);
+    auto _end = llvm::BasicBlock::Create(context, "", _fun);
 
     builder.CreateBr(_cond);
     
-    placeBlock(fun, _cond);
+    placeBlock(_fun, _cond);
     builder.SetInsertPoint(_cond);
     
     auto coex = emitExpression(swhi->condition);
     auto one = llvm::ConstantFP::get(builder.getDoubleTy(), 1.0);
     coex = builder.CreateFCmpOEQ(coex, one);
-    auto br = builder.CreateCondBr(coex, _body, _end);
+    builder.CreateCondBr(coex, _body, _end);
 
-    placeBlock(fun, _body);
+    placeBlock(_fun, _body);
     builder.SetInsertPoint(_body);
     emitStatement(swhi->body);
     builder.CreateBr(_cond);
 
-    placeBlock(fun, _end);
+    placeBlock(_fun, _end);
     builder.SetInsertPoint(_end);
 }
 
-//
+///
 void IrEmitter::emitFor( ForPtr sfor )
 {
-    // TODO:
-    // 1. գեներացնել սկզբնական արժեքի արտահայտությունը,
-    // 2. գեներացնել վերջնական արժեքի արտահայտությունը,
-    // 3. պարամետրին վերագրել սկզբնական արժեքը,
-    // 4. եթե պարամետրի արժեքը >= (կամ <=, եթե քայլը բացասական է) վերջնականից,
-    // 5. ապա դուրս գալ ցիկլից,
-    // 6. գեներացնել մարմինը,
-    // 7. պարամետրի արժեքին գումարել քայլի արժեքը,
-    // 8. շարունակել 4-րդ կետից։
+    auto _fun = builder.GetInsertBlock()->getParent();
 
-    /*
-    llvm::BasicBlock* head = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
-    llvm::BasicBlock* body = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
-    llvm::BasicBlock* exit = llvm::BasicBlock::Create(context, "bb", endBB->getParent(), endBB);
+    auto _cond = llvm::BasicBlock::Create(context, "", _fun);
+    auto _body = llvm::BasicBlock::Create(context, "", _fun);
+    auto _end = llvm::BasicBlock::Create(context, "", _fun);
 
-    auto param_addr = getVariableAddress(forSt->parameter->name);
-    auto begin = emitExpression(forSt->begin);
-    builder.CreateStore(begin, param_addr);
+    auto _param = varaddresses[sfor->parameter->name];
+    // գեներացնել սկզբնական արժեքի արտահայտությունը
+    auto _init = emitExpression(sfor->begin);
+    // պարամետրին վերագրել սկզբնական արժեքը
+    builder.CreateStore(_init, _param);
+    // գեներացնել վերջնական արժեքի արտահայտությունը
+    auto _finish = emitExpression(sfor->end);
+    // քայլը հաստատուն է
+    auto _step = llvm::ConstantFP::get(builder.getDoubleTy(), sfor->step->value);
+    
+    placeBlock(_fun, _cond);
+    builder.SetInsertPoint(_cond);
 
-    //Setting step 1 by default
-    llvm::Value* step = builder.getInt32(1);
-
-    //Looking if step is given
-    if (forSt->step) {
-        step = emitExpression(forSt->step);
+    // եթե պարամետրի արժեքը >= (կամ <=, եթե քայլը բացասական է)
+    // վերջնականից, ապա ավարտել ցիկլը
+    if( sfor->step->value >= 0.0 ) {
+        auto _pv = builder.CreateLoad(_param);
+        auto coex = builder.CreateFCmpOLT(_pv, _finish);
+        builder.CreateCondBr(coex, _body, _end);
+    }
+    else if( sfor->step->value <= 0.0 ) {
+        auto _pv = builder.CreateLoad(_param);
+        auto coex = builder.CreateFCmpOGT(_pv, _finish);
+        builder.CreateCondBr(coex, _body, _end);
     }
 
-    auto end = emitExpression(forSt->end);
-    builder.CreateBr(head);
+    // գեներացնել մարմինը
+    placeBlock(_fun, _body);
+    builder.SetInsertPoint(_body);
+    emitStatement(sfor->body);
 
-    builder.SetInsertPoint(head);
-    auto param = builder.CreateLoad(param_addr);
-    auto cnd = builder.CreateFCmpOLE(param, end, "le");
-    builder.CreateCondBr(cnd, body, endBB);
+    // պարամետրի արժեքին գումարել քայլի արժեքը
+    auto parval = builder.CreateLoad(_param);
+    auto nwpv = builder.CreateFAdd(parval, _step);
+    builder.CreateStore(nwpv, _param);
 
-    //Handling the body
-    builder.SetInsertPoint(body);
-    emitStatement(forSt->body, exit);
+    // կրկնել ցիկլը
+    builder.CreateBr(_cond);
 
-    //Incrementing the index
-    auto inc_param = builder.CreateFAdd(param, step);
-    builder.CreateStore(inc_param, param_addr);
-
-    if (!body->getTerminator()) {
-        builder.SetInsertPoint(body);
-        builder.CreateBr(head);
-    }
-
-    builder.SetInsertPoint(endBB);
-    */
+    placeBlock(_fun, _end);
+    builder.SetInsertPoint(_end);
 }
 
 ///
