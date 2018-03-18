@@ -35,7 +35,14 @@ std::unique_ptr<Module> llvm::parseAssemblyString(
 
 
 namespace basic {
-    
+///
+IrEmitter::IrEmitter()
+    : context(), builder(context)
+{
+    // նախապատրաստել գրադարանակին (սպասարկող) ֆունկցիաները
+    prepareLibrary();
+}
+
 ///
 bool IrEmitter::emitIrCode( ProgramPtr prog )
 {
@@ -60,9 +67,6 @@ void IrEmitter::emitProgram( ProgramPtr prog )
     // ստեղծել LLVM-ի Module օբյեկտ՝ դրա հասցեն պահելով
     // STL գրադարանի unique_ptr-ի մեջ։
     module = std::make_unique<llvm::Module>(prog->filename, context);
-
-    // հայտարարել գրադարանային (արտաքին) ֆունկցիաները
-    declareLibrary();
 
     // սեփական ֆունկցիաների հայտարարությունն ու սահմանումը
     // հարմար է առանձնացնել, որպեսզի Apply և Call գործողությունների
@@ -121,10 +125,9 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
     }
 
     // պարամետրերի արժեքները վերագրել լոկալ օբյեկտներին
-    auto text_clone_f = module->getFunction("text_clone");
     for( auto& arg : fun->args() )
         if( arg.getType()->isPointerTy() ) {
-            auto parval = builder.CreateCall(text_clone_f, { &arg });
+            auto parval = builder.CreateCall(LF("text_clone"), { &arg });
             builder.CreateStore(parval, varaddresses[arg.getName()]);
             localtexts.remove(varaddresses[arg.getName()]);
         }
@@ -135,9 +138,8 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
     // (սա արվում է վերագրման ժամանակ հին արժեքը ջնջելու և 
     // նորը վերագրելու սիմետրիկությունն ապահովելու համար)
     auto one = builder.getInt64(1);
-    auto malloc_f = module->getFunction("malloc");
     for( auto vp : localtexts ) {
-        auto deva = builder.CreateCall(malloc_f, { one });
+        auto deva = builder.CreateCall(LF("malloc"), { one });
         builder.CreateStore(deva, vp);
     }
 
@@ -150,14 +152,13 @@ void IrEmitter::emitSubroutine( SubroutinePtr subr )
     // Բացառություն պիտի լինի միայն ֆունկցիայի անունով 
     // փոփոխականին կապված արժեքը, որը վերադարձվելու է
     // ֆունկցիային կանչողին
-    auto free_f = module->getFunction("free");
     for( auto vi : subr->locals ) {
         if( Type::Number == vi->type )
             continue;
         if( vi->name == subr->name )
             continue;
         auto addr = varaddresses[vi->name];
-        auto deva = builder.CreateCall(free_f, { addr });
+        auto deva = builder.CreateCall(LF("free"), { addr });
     }
 
     // վերադարձվող արժեք
@@ -221,12 +222,9 @@ void IrEmitter::emitLet( LetPtr let )
     auto addr = varaddresses[let->varptr->name];
     
     if( Type::Text == let->varptr->type ) {
-        auto text_clone_f = module->getFunction("text_clone");
-        auto free_f = module->getFunction("free");
-        
-        builder.CreateCall(free_f, addr);
+        builder.CreateCall(LF("free"), addr);
         if( !createsTempText(let->expr) )
-            val = builder.CreateCall(text_clone_f, { val });
+            val = builder.CreateCall(LF("text_clone"), { val });
     }
 
     builder.CreateStore(val, addr);
@@ -424,6 +422,7 @@ llvm::Value* IrEmitter::emitExpression( ExpressionPtr expr )
             res = emitLoad(std::dynamic_pointer_cast<Variable>(expr));
             break;
         case NodeKind::Unary:
+            res = emitUnary(std::dynamic_pointer_cast<Unary>(expr));
             break;
         case NodeKind::Binary:
             res = emitBinary(std::dynamic_pointer_cast<Binary>(expr));
@@ -438,7 +437,7 @@ llvm::Value* IrEmitter::emitExpression( ExpressionPtr expr )
     return res;
 }
 
-//
+///
 llvm::Value* IrEmitter::emitText( TextPtr txt )
 {
     // եթե տրված արժեքով տող արդեն սահմանված է գլոբալ
@@ -455,7 +454,7 @@ llvm::Value* IrEmitter::emitText( TextPtr txt )
     return strp;
 }
 
-//
+///
 llvm::Constant* IrEmitter::emitNumber( NumberPtr num )
 {
     return llvm::ConstantFP::get(builder.getDoubleTy(), num->value);
@@ -485,10 +484,9 @@ llvm::Value* IrEmitter::emitApply( ApplyPtr apy )
     auto calv = builder.CreateCall(callee, argus);
 
     // մաքրել կանչի ժամանակավոր արգումենտները
-    auto free_f = module->getFunction("free");
     for( auto ai : temps )
         if( ai->getType()->isPointerTy() )
-            builder.CreateCall(free_f, { ai });
+            builder.CreateCall(LF("free"), { ai });
 
     // վերադարձնել կանչի արդյունքը
     return calv;
@@ -544,11 +542,9 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
         case Operation::Or:
             ret = builder.CreateOr(lhs, rhs, "or");
             break;
-        case Operation::Conc: {
-            auto text_concatenate_f = module->getFunction("text_concatenate");
-            ret = builder.CreateCall(text_concatenate_f, { lhs, rhs });
+        case Operation::Conc:
+            ret = builder.CreateCall(LF("text_conc"), { lhs, rhs });
             break;
-        }
         default:
             break;
     }
@@ -556,22 +552,25 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
     return ret;
 }
 
-/*
-llvm::Value* IrEmitter::emitUnary(Unary* un)
+///
+llvm::Value* IrEmitter::emitUnary( UnaryPtr un )
 {
-    llvm::Value* val = emitExpression(un->subexpr);
-    switch (un->opcode) {
+    auto val = emitExpression(un->subexpr);
+    llvm::Value* res = nullptr;
+    
+    switch( un->opcode ) {
         case Operation::Sub:
-            return builder.CreateFNeg(val, "neg");
+            res = builder.CreateFNeg(val, "neg");
+            break;
         case Operation::Not:
-            return builder.CreateNot(val, "not");
-        default: {
-            assert("Invalid unary operation");
-        }
+            res = builder.CreateNot(val, "not");
+            break;
+        default:
+            break;
     }
-    return nullptr;
+    
+    return res;
 }
-*/
 
 ///
 void IrEmitter::placeBlock( llvm::Function* fun, llvm::BasicBlock* bl )
@@ -585,33 +584,39 @@ void IrEmitter::placeBlock( llvm::Function* fun, llvm::BasicBlock* bl )
     // TODO: builder.SerInsertPoint(bl);
 }
 
-/**/
-void IrEmitter::declareFunction( const String& name,
-    const TypeVector& patys, IrType* rty, bool external )
-{
-    auto functy = llvm::FunctionType::get(rty, patys, false);
-    auto linkage = external ? llvm::GlobalValue::ExternalLinkage :
-        llvm::GlobalValue::InternalLinkage;
-    llvm::Function::Create(functy, linkage, name, module.get());
-}
-
-/**/
-void IrEmitter::declareLibrary()
+///
+void IrEmitter::prepareLibrary()
 {
     auto _V = builder.getVoidTy();
+    auto _B = builder.getInt1Ty();
     auto _N = builder.getDoubleTy();
     auto _T = builder.getInt8PtrTy();
 
-    declareFunction("text_clone", {_T}, _T, true);
-    declareFunction("text_input", {}, _T, true);
-    declareFunction("text_print", {_T}, _V, true);
-    declareFunction("text_concatenate", {_T, _T}, _T, true);
+    // տեքստային ֆունկցիաներ
+    library["text_clone"] = llvm::FunctionType::get(_T, {_T}, false);
+    library["text_input"] = llvm::FunctionType::get(_T, {}, false);
+    library["text_print"] = llvm::FunctionType::get(_V, {_T}, false);
+    library["text_conc"] = llvm::FunctionType::get(_T, {_T, _T}, false);
+    library["text_eq"] = llvm::FunctionType::get(_B, {_T, _T}, false);
+    library["text_ne"] = llvm::FunctionType::get(_B, {_T, _T}, false);
+    library["text_gt"] = llvm::FunctionType::get(_B, {_T, _T}, false);
+    library["text_ge"] = llvm::FunctionType::get(_B, {_T, _T}, false);
+    library["text_lt"] = llvm::FunctionType::get(_B, {_T, _T}, false);
+    library["text_le"] = llvm::FunctionType::get(_B, {_T, _T}, false);
 
-    declareFunction("number_input", {}, _N, true);
-    declareFunction("number_print", {_N}, _V, true);
+    // թվային ֆունկցիաներ
+    library["number_input"] = llvm::FunctionType::get(_N, {}, false);
+    library["number_print"] = llvm::FunctionType::get(_V, {_N}, false);
 
-    declareFunction("malloc", { builder.getInt64Ty() }, _T, true);
-    declareFunction("free", {_T}, _V, true);
+    // հիշողության ֆունկցիաներ
+    library["malloc"] = llvm::FunctionType::get(_T, {builder.getInt64Ty()}, false);
+    library["free"] = llvm::FunctionType::get(_V, {_T}, false);
+}
+
+///
+llvm::Constant* IrEmitter::LF( const String& name )
+{
+    return module->getOrInsertFunction(name, library[name]);
 }
 
 /**/
@@ -631,7 +636,9 @@ void IrEmitter::declareSubroutines( ProgramPtr prog )
             rtype = builder.getVoidTy();
 
         // ստեղծել ֆունկցիայի հայտարարությունը
-        declareFunction(subr->name, ptypes, rtype);
+        auto functy = llvm::FunctionType::get(rtype, ptypes, false);
+        auto linkage = llvm::GlobalValue::ExternalLinkage;
+        llvm::Function::Create(functy, linkage, subr->name, module.get());
     }
 }
 

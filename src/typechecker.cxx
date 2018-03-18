@@ -93,10 +93,10 @@ void TypeChecker::visitIf( IfPtr node )
 void TypeChecker::visitWhile( WhilePtr node )
 {
     visitAstNode(node->condition);
-    visitAstNode(node->condition);
-
     if( Type::Number != node->condition->type )
         throw TypeError("Պայմանով ցիկլի պայմանի տիպը թվային չէ։");
+
+    visitAstNode(node->body);
 }
 
 //

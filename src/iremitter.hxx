@@ -20,9 +20,7 @@ public:
     using TypeVector = std::vector<IrType*>;
 
 public:
-    IrEmitter()
-        : context(), builder(context)
-    {}
+    IrEmitter();
     ~IrEmitter() = default;
 
     bool emitIrCode( ProgramPtr prog );
@@ -52,9 +50,8 @@ private:
   
     llvm::Type* llvmType( Type type );
     void placeBlock( llvm::Function* fun, llvm::BasicBlock* bl );
-    void declareFunction( const String& name, const TypeVector& patys,
-        IrType* rty, bool external = false );
-    void declareLibrary();
+    void prepareLibrary();
+    llvm::Constant* LF( const String& name );
     void declareSubroutines( ProgramPtr prog );
     void defineSubroutines( ProgramPtr prog );
     bool createsTempText( ExpressionPtr expr );
@@ -67,6 +64,7 @@ private:
 
     ////llvm::raw_fd_ostream& outstream;
 
+    std::unordered_map<String,llvm::FunctionType*> library;
     std::unordered_map<String,llvm::Value*> globaltexts;
     std::unordered_map<String,llvm::Value*> varaddresses;
 };

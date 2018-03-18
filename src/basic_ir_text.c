@@ -25,7 +25,7 @@ char *text_clone(const char *sr)
 }
 
 /**/
-char *text_concatenate(const char *so, const char *si)
+char *text_conc(const char *so, const char *si)
 {
   size_t len = 1 + strlen(so) + strlen(si);
   char *res = malloc(len);
@@ -51,37 +51,37 @@ char *text_mid(const char *so, size_t b, size_t l)
 */
 
 /**/
-int text_equal(const char *so, const char *si)
+int text_eq(const char *so, const char *si)
 {
   return 0 == strcmp(so, si);
 }
 
 /**/
-int text_not_equal(const char *so, const char *si)
+int text_ne(const char *so, const char *si)
 {
   return 0 != strcmp(so, si);
 }
 
 /**/
-int text_greater(const char *so, const char *si)
+int text_gt(const char *so, const char *si)
 {
   return 0 < strcmp(so, si);
 }
 
 /**/
-int text_greater_or_equal(const char *so, const char *si)
+int text_ge(const char *so, const char *si)
 {
   return 0 <= strcmp(so, si);
 }
 
 /**/
-int text_lesser(const char *so, const char *si)
+int text_lt(const char *so, const char *si)
 {
   return 0 > strcmp(so, si);
 }
 
 /**/
-int text_lesser_or_equal(const char *so, const char *si)
+int text_le(const char *so, const char *si)
 {
   return 0 >= strcmp(so, si);
 }
