@@ -498,6 +498,9 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
     llvm::Value* lhs = emitExpression(bin->subexpro);
     llvm::Value* rhs = emitExpression(bin->subexpri);
 
+    bool numopers = (Type::Number == bin->subexpro->type)
+                 || (Type::Number == bin->subexpri->type);
+    
     llvm::Value* ret = nullptr;
     switch( bin->opcode ) {
         case Operation::Add:
@@ -519,13 +522,18 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
             assert("POW operator is not handled yet");
             break;
         case Operation::Eq:
-            ret = builder.CreateFCmpOEQ(lhs, rhs, "eq");
+            if( numopers )
+                ret = builder.CreateFCmpOEQ(lhs, rhs, "eq");
+            else {
+                ret = builder.CreateCall(LF("text_eq"), {lhs, rhs});
+                // TODO: ստանալ i1 տիպի արժեք
+            }
             break;
         case Operation::Ne:
             ret = builder.CreateFCmpONE(lhs, rhs, "ne");
             break;
         case Operation::Gt:
-            ret = builder.CreateFCmpOGT(lhs, rhs, "ne");
+            ret = builder.CreateFCmpOGT(lhs, rhs, "gt");
             break;
         case Operation::Ge:
             ret = builder.CreateFCmpOGE(lhs, rhs, "ge");

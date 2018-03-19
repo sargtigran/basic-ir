@@ -6,21 +6,31 @@
 #include <exception>
 #include <string>
 #include <memory>
+#include <utility>
 
 namespace basic {
 //! @brief Շարահյուսական վերլուծիչը
 class Parser {
 private:
+    using BuiltInSubr = std::pair<std::vector<std::string>,bool>;
+
+private:
     //! @brief Վերլուծված ծրագրի ցուցիչը, միաժամանակ նաև
     //! վերլուծության ծառի արմատը
     ProgramPtr module;
 
+    //! @brief ընթացիկ վերլուծվող ենթածրագրի ցուցիչը
+    SubroutinePtr currentsubr;
+
     Scanner scanner;  //!< բառային վերլուծիչը
     Lexeme lookahead; //!< հերթական լեքսեմը
-
+    
     //! @brief անորոշ հղումներ. բանալին ենթածրագրի անունն է,
     //! իսկ արժեքը դրան հղվող Apply օբյեկտների ցուցակը
     std::map<std::string,std::list<ApplyPtr>> unresolved;
+
+    //! @brief ներդրված ենթածրագրերի նկարագրությունների ցուցակ
+    std::map<std::string,BuiliInSubr> builtins;
 
 public:
     //! @brief Շարահյուսական վերլուծիչի կոնստրուկտորը
@@ -98,13 +108,6 @@ private:
 
     void match( Token tok );
 
-    //! @brief Հայտարարում է BASIC-IR լեզվի ներդրված ենթածրագիր
-    //!
-    //! @param nm - ենթածրագրի անունը
-    //! @param ps - պարամետերեի ցուցակը
-    //! @param rv - ֆունկցիա է կամ պրոցեդուրա
-    void declareBuiltIn( const std::string& nm, const std::vector<std::string>& ps, bool rv );
-
     //! @brief Ստեղծում է լոկալ փոփոխական կամ վերադարձնում է արդեն գոյություն
     //! ունեցող փոփոխականի հասցեն
     //!
@@ -125,10 +128,8 @@ private:
     //! տիպերի համապատասխանությունը։
     //!
     //! @param nm   - ենթածրագրի անունը
-    //! @param ags  - կանչի արգումենտները
     //! @param func - @c true է, եթե ենթածրագիրը կիրառված է որպես ֆունկցիա
-    SubroutinePtr getSubroutine( const std::string& nm,
-        const std::vector<ExpressionPtr>& ags, bool func );
+    SubroutinePtr getSubroutine( const std::string& nm, bool func );
 };
 
 bool equalNames( const std::string& no, const std::string& ni );

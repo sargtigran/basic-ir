@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 /*
 */
@@ -51,37 +52,37 @@ char *text_mid(const char *so, size_t b, size_t l)
 */
 
 /**/
-int text_eq(const char *so, const char *si)
+bool text_eq(const char *so, const char *si)
 {
   return 0 == strcmp(so, si);
 }
 
 /**/
-int text_ne(const char *so, const char *si)
+bool text_ne(const char *so, const char *si)
 {
   return 0 != strcmp(so, si);
 }
 
 /**/
-int text_gt(const char *so, const char *si)
+bool text_gt(const char *so, const char *si)
 {
   return 0 < strcmp(so, si);
 }
 
 /**/
-int text_ge(const char *so, const char *si)
+bool text_ge(const char *so, const char *si)
 {
   return 0 <= strcmp(so, si);
 }
 
 /**/
-int text_lt(const char *so, const char *si)
+bool text_lt(const char *so, const char *si)
 {
   return 0 > strcmp(so, si);
 }
 
 /**/
-int text_le(const char *so, const char *si)
+bool text_le(const char *so, const char *si)
 {
   return 0 >= strcmp(so, si);
 }

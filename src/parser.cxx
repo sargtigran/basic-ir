@@ -24,15 +24,17 @@ private:
 Parser::Parser( const std::string& filename )
     : scanner(filename)
 {
+    builtins = {
+        // թվային ֆունկցիաներ
+        {"SQR", {{"a"}, true}},
+        {"SIN", {{"a"}, true}},
+
+        // տեքստային ֆունկցիաներ
+        {"MID$", {{"a$", "b", "c"}, true}},
+        {"STR$", {{"a"}, true}}
+    };
+
     module = std::make_shared<Program>(filename);
-
-    // թվային ֆունկցիաներ
-    declareBuiltIn("SQR", { "a" }, true);
-    declareBuiltIn("SIN", { "a" }, true);
-
-    // տեքստային ֆունկցիաներ
-    declareBuiltIn("MID$", { "a$", "b", "c" }, true);
-    declareBuiltIn("STR$", { "a" }, true);
 }
 
 ///
@@ -120,15 +122,15 @@ void Parser::parseSubroutine()
         match(Token::RightPar);
     }
 
-    auto subr = std::make_shared<Subroutine>(name, params);
-    module->members.push_back(subr);
+    currentsubr = std::make_shared<Subroutine>(name, params);
+    module->members.push_back(currentsubr);
 
 	// պարամետրերն ավելացնել ենթածրագրի լոկալ անունների ցուցակում
-	for( auto& ps : subr->parameters )
-        subr->locals.push_back(std::make_shared<Variable>(ps));
+	for( auto& ps : currentsubr->parameters )
+        currentsubr->locals.push_back(std::make_shared<Variable>(ps));
 
     // մարմին
-    subr->body = parseStatements();
+    currentsubr->body = parseStatements();
 
     match(Token::End);
     match(Token::Subroutine);
@@ -138,7 +140,7 @@ void Parser::parseSubroutine()
     auto apit = unresolved.find(name);
     if( apit != unresolved.end() ) {
         for( auto& ap : apit->second )
-            ap->procptr = subr;
+            ap->procptr = currentsubr;
         unresolved.erase(apit);
     }
 }
@@ -195,8 +197,7 @@ StatementPtr Parser::parseLet()
 
     // եթե vnm-ն համընկնում է ընթացիկ ենթածրագրի անվան հետ,
     // ապա վերջինիս hasValue-ն դնել true
-    auto current = module->members.back();
-    if( vnm == current->name )
+    if( vnm == currentsubr->name )
         current->hasValue = true;
 
     return std::make_shared<Let>(varp, exo);
@@ -339,7 +340,7 @@ StatementPtr Parser::parseCall()
 
     auto caller = std::make_shared<Call>(nullptr, args);
 
-    auto callee = getSubroutine(name, args, false);
+    auto callee = getSubroutine(name, false);
     if( nullptr == callee )
         unresolved[name].push_back(caller->subrcall);
 
@@ -484,7 +485,7 @@ ExpressionPtr Parser::parseFactor()
             auto applyer = std::make_shared<Apply>(nullptr, args);
             applyer->type = typeOf(name);
 
-            auto callee = getSubroutine(name, args, true);
+            auto callee = getSubroutine(name, true);
             if( nullptr == callee )
                 unresolved[name].push_back(applyer);
 
@@ -504,7 +505,7 @@ ExpressionPtr Parser::parseFactor()
         return exo;
     }
 
-    throw ParseError("Սպասվում է NUMBER, TEXT, '-', NOT, IDENT կամ '(', բայց հանդիպել է " + lookahead.value + "։");;
+    throw ParseError("Սպասվում է NUMBER, TEXT, '-', NOT, IDENT կամ '(', բայց հանդիպել է " + lookahead.value + "։");
 }
 
 //
@@ -526,21 +527,11 @@ void Parser::match( Token exp )
 }
 
 //
-void Parser::declareBuiltIn( const std::string& nm, const std::vector<std::string>& ps, bool rv )
-{
-    auto sre = std::make_shared<Subroutine>(nm, ps);
-    sre->isBuiltIn = true;
-    sre->hasValue = rv;
-    module->members.push_back(sre);
-}
-
-//
 VariablePtr Parser::getVariable( const std::string& nm, bool rval )
 {
-    auto subr = module->members.back();
-    auto& locals = subr->locals;
+    auto& locals = currentsubr->locals;
 
-    if( rval && equalNames(subr->name, nm) )
+    if( rval && equalNames(currentsubr->name, nm) )
         throw ParseError("Ենթածրագրի անունը օգտագործված է որպես փոփոխական։");
 
     auto vpi = std::find_if(locals.begin(), locals.end(),
@@ -558,16 +549,27 @@ VariablePtr Parser::getVariable( const std::string& nm, bool rval )
 }
 
 //
-SubroutinePtr Parser::getSubroutine( const std::string& nm, 
-    const std::vector<ExpressionPtr>& ags, bool func )
+SubroutinePtr Parser::getSubroutine( const std::string& nm, bool func )
 {
     // որոնել տրված անունով ենթածրագիրը արդեն սահմանվածների մեջ
     auto subrit = std::find_if(module->members.begin(), module->members.end(),
         [&nm](auto sp)->bool { return equalNames(sp->name, nm); });
 
-    // եթե դեռ սահմանված չէ, պարզապես վերադաձնել @c nullptr
-    if( subrit == module->members.end() )
-        return nullptr;
+    // TODO: վերանայել, ստուգել
+    // եթե դեռ սահմանված չէ, ...
+    if( subrit == module->members.end() ) {
+        // ... արդյո՞ք դա ներդրված ենթածրագիր է
+        auto bi = builtins.find(nm);
+        if( builtins.end() == bi )
+            return nullptr;
+
+        // հայտարարել ներդրված ենթածրագիր
+        auto sre = std::make_shared<Subroutine>(nm, bi->second.first);
+        sre->isBuiltIn = true;
+        sre->hasValue = bi->second->second;
+        module->members.push_back(sre);
+        return sre;
+    }
 
     // եթե հարցումը ֆունկցիայի կանչի համար է, բայց ենթածրագիրն արժեք չի վերադարձնում
     if( func && !(*subrit)->hasValue )
