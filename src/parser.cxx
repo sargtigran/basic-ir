@@ -198,7 +198,7 @@ StatementPtr Parser::parseLet()
     // եթե vnm-ն համընկնում է ընթացիկ ենթածրագրի անվան հետ,
     // ապա վերջինիս hasValue-ն դնել true
     if( vnm == currentsubr->name )
-        current->hasValue = true;
+        currentsubr->hasValue = true;
 
     return std::make_shared<Let>(varp, exo);
 }
@@ -566,7 +566,7 @@ SubroutinePtr Parser::getSubroutine( const std::string& nm, bool func )
         // հայտարարել ներդրված ենթածրագիր
         auto sre = std::make_shared<Subroutine>(nm, bi->second.first);
         sre->isBuiltIn = true;
-        sre->hasValue = bi->second->second;
+        sre->hasValue = bi->second.second;
         module->members.push_back(sre);
         return sre;
     }

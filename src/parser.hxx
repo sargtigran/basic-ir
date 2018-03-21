@@ -30,7 +30,7 @@ private:
     std::map<std::string,std::list<ApplyPtr>> unresolved;
 
     //! @brief ներդրված ենթածրագրերի նկարագրությունների ցուցակ
-    std::map<std::string,BuiliInSubr> builtins;
+    std::map<std::string,BuiltInSubr> builtins;
 
 public:
     //! @brief Շարահյուսական վերլուծիչի կոնստրուկտորը

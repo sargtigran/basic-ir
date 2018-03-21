@@ -39,12 +39,14 @@ char *text_conc(const char *so, const char *si)
 char *text_str(double nv)
 {
   /* թվի տեքտային տեսքը */
+  return NULL;
 }
 
 /**/
 char *text_mid(const char *so, size_t b, size_t l)
 {
   /* ենթատող */
+  return NULL;
 }
 
 /*

@@ -233,8 +233,15 @@ void IrEmitter::emitLet( LetPtr let )
 ///
 void IrEmitter::emitInput( InputPtr inp )
 {
-    // կանչել գրադարանային ֆունկցիա
-    // input_text() կամ input_number()
+    // TODO: կարգի բերել
+    if( Type::Text == inp->type ) {
+        auto _inp = builder.CreateCall(LF("text_input"), {});
+        builder.CreateStore(_inp, varaddresses[inp->name]);
+    }
+    else if( Type::Number == inp->type ) {
+        auto _inp = builder.CreateCall(LF("number_input"), {});
+        builder.CreateStore(_inp, varaddresses[inp->name]);
+    }
 }
 
 ///
