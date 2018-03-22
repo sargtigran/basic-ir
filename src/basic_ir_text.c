@@ -43,7 +43,7 @@ char *text_str(double nv)
 }
 
 /**/
-char *text_mid(const char *so, size_t b, size_t l)
+char *text_mid(const char *so, double b, double l)
 {
   /* ենթատող */
   return NULL;

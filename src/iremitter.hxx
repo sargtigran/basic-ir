@@ -47,15 +47,20 @@ private:
     llvm::Constant* emitNumber( NumberPtr num );
     llvm::LoadInst* emitLoad( VariablePtr var );
 
-  
+    //! @brief BASIC-IR տիպից կառուցում է LLVM տիպ։
     llvm::Type* llvmType( Type type );
+
+    //! @brief Ճշտում է հերթական BasicBlock-ի դիրքը։
     void placeBlock( llvm::Function* fun, llvm::BasicBlock* bl );
+
     void prepareLibrary();
     llvm::Constant* LF( const String& name );
+    llvm::Constant* UF( const String& name );
+
     void declareSubroutines( ProgramPtr prog );
     void defineSubroutines( ProgramPtr prog );
     bool createsTempText( ExpressionPtr expr );
-    
+
 private:
     llvm::LLVMContext context;
     llvm::IRBuilder<> builder;
@@ -64,8 +69,30 @@ private:
 
     ////llvm::raw_fd_ostream& outstream;
 
+    //! @brief Գրադարանային ֆունկցիաների ցուցակն է։
+    //!
+    //! Բանալին ֆունկցիայի անունն է, իսկ արժեքը ֆունկցիայի տիպն է՝
+    //! որպես @c FunctionType ցուցիչ։ Այս ցուցակում պետք է գրանցվեն,
+    //! բոլոր այն ֆունկցիաները, որոնք կոդի գեներատորն օգտագործելու է։
     std::unordered_map<String,llvm::FunctionType*> library;
+
+    //! @brief Տեքստային հաստատունների ցուցակն է։
+    //!
+    //! Երբ պետք է գեներացվի հղում տեքստային հաստատունին, @c emitText
+    //! մեթոդը նախ այդ հաստատունի հասցեն փնտրում է այս ցուցակում։ 
+    //! Եթե տվյալ հաստատունն արդեն սահմանված է, ապա օգտագործվում
+    //! է դրա հասցեն, հակառակ դեպքում՝ սահմանվում է նորը։
     std::unordered_map<String,llvm::Value*> globaltexts;
+
+    //! @brief Ֆունկցիայի լոկալ անունների ցուցակն է։
+    //!
+    //! Սա օգտագործվում է բոլոր այն դեպքերում, երբ պետք է իդենտիֆիկատորը
+    //! կապել @c Value ցուցիչի հետ։ Քանի որ վերլուծության վերջում արդեն 
+    //! հայտնի են ենթածրագրում օգտագործված բոլոր անունները և դրանք 
+    //! գրանցված են @c Subroutine օբյեկտի @c locals ցուցակում, ապա կոդի
+    //! գեներացիայի ժամանակ հենց ամենասկզբում ստեղծվում է այս ցուցակը,
+    //! իսկ այն դեպքերում, երբ պետք է հղվել անունին, համապատասխան
+    //! ցուցիչն ընտրվում է այստեղից։
     std::unordered_map<String,llvm::Value*> varaddresses;
 };
 } // namespace basic

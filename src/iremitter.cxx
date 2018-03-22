@@ -612,6 +612,8 @@ void IrEmitter::prepareLibrary()
     library["text_input"] = llvm::FunctionType::get(_T, {}, false);
     library["text_print"] = llvm::FunctionType::get(_V, {_T}, false);
     library["text_conc"] = llvm::FunctionType::get(_T, {_T, _T}, false);
+    library["text_mid"] = llvm::FunctionType::get(_T, {_T, _N, _N}, false);
+    library["text_str"] = llvm::FunctionType::get(_T, {_N}, false);
     library["text_eq"] = llvm::FunctionType::get(_B, {_T, _T}, false);
     library["text_ne"] = llvm::FunctionType::get(_B, {_T, _T}, false);
     library["text_gt"] = llvm::FunctionType::get(_B, {_T, _T}, false);
@@ -632,6 +634,18 @@ void IrEmitter::prepareLibrary()
 llvm::Constant* IrEmitter::LF( const String& name )
 {
     return module->getOrInsertFunction(name, library[name]);
+}
+
+///
+llvm::Constant* IrEmitter::UF( const String& name )
+{
+    if( "MID$" == name )
+        return LF("text_mid");
+
+    if( "STR$" == name )
+        return LF("text_str");
+
+    return module->getFunction(name);
 }
 
 /**/
