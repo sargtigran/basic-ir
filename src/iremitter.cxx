@@ -234,13 +234,13 @@ void IrEmitter::emitLet( LetPtr let )
 void IrEmitter::emitInput( InputPtr inp )
 {
     // TODO: կարգի բերել
-    if( Type::Text == inp->type ) {
+    if( Type::Text == inp->varptr->type ) {
         auto _inp = builder.CreateCall(LF("text_input"), {});
-        builder.CreateStore(_inp, varaddresses[inp->name]);
+        builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
     }
-    else if( Type::Number == inp->type ) {
+    else if( Type::Number == inp->varptr->type ) {
         auto _inp = builder.CreateCall(LF("number_input"), {});
-        builder.CreateStore(_inp, varaddresses[inp->name]);
+        builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
     }
 }
 
@@ -251,7 +251,7 @@ void IrEmitter::emitPrint( PrintPtr pri )
     // print_text() կամ print_number()
 }
 
-//TODO լրացնել ուղղել
+///
 void IrEmitter::emitIf( IfPtr sif )
 {
     // ընթացիկ ֆունկցիայի դուրս բերում
@@ -259,7 +259,6 @@ void IrEmitter::emitIf( IfPtr sif )
     auto fun = insertBB->getParent();
     auto _mbb = llvm::BasicBlock::Create(context, "else", fun);
 
-#if 1
     StatementPtr sp = sif;
     while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
 
@@ -288,43 +287,6 @@ void IrEmitter::emitIf( IfPtr sif )
         builder.CreateBr(_mbb);
         builder.SetInsertPoint(_mbb);
     }
-#else
-    // գեներացնել պայմանի օպերտորը 
-    auto cnd = emitExpression(sif->condition);
-
-    // 
-    llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(context, "then.bb", fun);
-    llvm::BasicBlock* mergeBB = llvm::BasicBlock::Create(context, "merge.bb", fun);
-
-    // then
-    builder.SetInsertPoint(thenBB);
-    emitStatement(sif->decision);
-
-    // else
-    llvm::BasicBlock* elseBB = mergeBB;
-    if (sif->alternative) {
-        elseBB = llvm::BasicBlock::Create(context, "else.bb", fun, mergeBB);
-        builder.SetInsertPoint(elseBB);
-        emitStatement(sif->alternative);
-    }
-
-
-    builder.SetInsertPoint(insertBB);
-    auto br = builder.CreateCondBr(cnd, thenBB, elseBB);
-
-    if (!thenBB->getTerminator()) {
-        builder.SetInsertPoint(thenBB);
-        builder.CreateBr(mergeBB);
-    }
-
-    if (!elseBB->getTerminator()) {
-        builder.SetInsertPoint(elseBB);
-        builder.CreateBr(mergeBB);
-    }
-
-    builder.SetInsertPoint(mergeBB);
-    //mEmittedNodes.insert({ sif, br });
-#endif
 }
 
 ///
