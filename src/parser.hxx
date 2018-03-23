@@ -6,14 +6,11 @@
 #include <exception>
 #include <string>
 #include <memory>
-#include <utility>
+#include <tuple>
 
 namespace basic {
 //! @brief Շարահյուսական վերլուծիչը
 class Parser {
-private:
-    using BuiltInSubr = std::pair<std::vector<std::string>,bool>;
-
 private:
     //! @brief Վերլուծված ծրագրի ցուցիչը, միաժամանակ նաև
     //! վերլուծության ծառի արմատը
@@ -30,7 +27,8 @@ private:
     std::map<std::string,std::list<ApplyPtr>> unresolved;
 
     //! @brief ներդրված ենթածրագրերի նկարագրությունների ցուցակ
-    std::map<std::string,BuiltInSubr> builtins;
+    using BuiltIn = std::tuple<std::string,std::vector<std::string>,bool>;
+    std::vector<BuiltIn> builtins;
 
 public:
     //! @brief Շարահյուսական վերլուծիչի կոնստրուկտորը
@@ -128,8 +126,7 @@ private:
     //! տիպերի համապատասխանությունը։
     //!
     //! @param nm   - ենթածրագրի անունը
-    //! @param func - @c true է, եթե ենթածրագիրը կիրառված է որպես ֆունկցիա
-    SubroutinePtr getSubroutine( const std::string& nm, bool func );
+    SubroutinePtr getSubroutine( const std::string& nm );
 };
 
 bool equalNames( const std::string& no, const std::string& ni );

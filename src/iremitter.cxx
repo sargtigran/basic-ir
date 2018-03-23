@@ -233,14 +233,18 @@ void IrEmitter::emitLet( LetPtr let )
 ///
 void IrEmitter::emitInput( InputPtr inp )
 {
-    // TODO: կարգի բերել
-    if( Type::Text == inp->type ) {
-        auto _inp = builder.CreateCall(LF("text_input"), {});
-        builder.CreateStore(_inp, varaddresses[inp->name]);
+    if( !inp->prompt.empty() ) {
+        // TODO: գեներացնել հրավերքի արտածումը
     }
-    else if( Type::Number == inp->type ) {
+    
+    // TODO: կարգի բերել
+    if( Type::Text == inp->varptr->type ) {
+        auto _inp = builder.CreateCall(LF("text_input"), {});
+        builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
+    }
+    else if( Type::Number == inp->varptr->type ) {
         auto _inp = builder.CreateCall(LF("number_input"), {});
-        builder.CreateStore(_inp, varaddresses[inp->name]);
+        builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
     }
 }
 
@@ -251,80 +255,42 @@ void IrEmitter::emitPrint( PrintPtr pri )
     // print_text() կամ print_number()
 }
 
-//TODO լրացնել ուղղել
+// TODO: լրացնել ուղղել
 void IrEmitter::emitIf( IfPtr sif )
 {
     // ընթացիկ ֆունկցիայի դուրս բերում
-    auto insertBB = builder.GetInsertBlock();
-    auto fun = insertBB->getParent();
-    auto _mbb = llvm::BasicBlock::Create(context, "else", fun);
+    auto _fun = builder.GetInsertBlock()->getParent();
+    auto _mbb = llvm::BasicBlock::Create(context, "endif", _fun);
 
-#if 1
     StatementPtr sp = sif;
     while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
-
         // գեներացնել պայմանի օպերտորը 
         auto cnd = emitExpression(_if->condition);
 
         // then֊բլոկ
-        auto _tbb = llvm::BasicBlock::Create(context, "then", fun, _mbb);
+        auto _tbb = llvm::BasicBlock::Create(context, "then", _fun);
         builder.CreateCondBr(cnd, _tbb, _mbb);
+
         builder.SetInsertPoint(_tbb);
         emitStatement(_if->decision);
 
         // հաջորդ բլոկի մշակում
         sp = _if->alternative;
-    };
+    }
 
     // կա՞ արդյոք else-բլոկ
     if( nullptr != sp ) {
-        auto _ebb = llvm::BasicBlock::Create(context, "merge", fun);
+        auto _ebb = llvm::BasicBlock::Create(context, "merge", _fun);
         builder.CreateBr(_ebb);
         builder.SetInsertPoint(_mbb);
         emitStatement(sp);
         builder.CreateBr(_ebb);
         builder.SetInsertPoint(_ebb);
-    } else {
+    }
+    else {
         builder.CreateBr(_mbb);
         builder.SetInsertPoint(_mbb);
     }
-#else
-    // գեներացնել պայմանի օպերտորը 
-    auto cnd = emitExpression(sif->condition);
-
-    // 
-    llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(context, "then.bb", fun);
-    llvm::BasicBlock* mergeBB = llvm::BasicBlock::Create(context, "merge.bb", fun);
-
-    // then
-    builder.SetInsertPoint(thenBB);
-    emitStatement(sif->decision);
-
-    // else
-    llvm::BasicBlock* elseBB = mergeBB;
-    if (sif->alternative) {
-        elseBB = llvm::BasicBlock::Create(context, "else.bb", fun, mergeBB);
-        builder.SetInsertPoint(elseBB);
-        emitStatement(sif->alternative);
-    }
-
-
-    builder.SetInsertPoint(insertBB);
-    auto br = builder.CreateCondBr(cnd, thenBB, elseBB);
-
-    if (!thenBB->getTerminator()) {
-        builder.SetInsertPoint(thenBB);
-        builder.CreateBr(mergeBB);
-    }
-
-    if (!elseBB->getTerminator()) {
-        builder.SetInsertPoint(elseBB);
-        builder.CreateBr(mergeBB);
-    }
-
-    builder.SetInsertPoint(mergeBB);
-    //mEmittedNodes.insert({ sif, br });
-#endif
 }
 
 ///
@@ -648,7 +614,7 @@ llvm::Constant* IrEmitter::UF( const String& name )
     return module->getFunction(name);
 }
 
-/**/
+///
 void IrEmitter::declareSubroutines( ProgramPtr prog )
 {
     for( auto& subr : prog->members ) {
@@ -671,7 +637,7 @@ void IrEmitter::declareSubroutines( ProgramPtr prog )
     }
 }
 
-/**/
+///
 void IrEmitter::defineSubroutines( ProgramPtr prog )
 {
     for( auto& subr : prog->members )
@@ -679,7 +645,7 @@ void IrEmitter::defineSubroutines( ProgramPtr prog )
             emitSubroutine(subr);
 }
 
-/**/
+///
 llvm::Type* IrEmitter::llvmType( Type type )
 {
     if( Type::Number == type )
