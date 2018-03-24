@@ -260,37 +260,51 @@ void IrEmitter::emitIf( IfPtr sif )
 {
     // ընթացիկ ֆունկցիայի դուրս բերում
     auto _fun = builder.GetInsertBlock()->getParent();
-    auto _mbb = llvm::BasicBlock::Create(context, "endif", _fun);
 
+    std::vector<llvm::BranchInst*> _toend;
+    
+    auto _begin = llvm::BasicBlock::Create(context, "cond", _fun);
+    builder.CreateBr(_begin);
+
+    builder.SetInsertPoint(_begin);
+    
     StatementPtr sp = sif;
     while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
-        // գեներացնել պայմանի օպերտորը 
-        auto cnd = emitExpression(_if->condition);
-
         // then֊բլոկ
         auto _tbb = llvm::BasicBlock::Create(context, "then", _fun);
-        builder.CreateCondBr(cnd, _tbb, _mbb);
+        auto _cbb = llvm::BasicBlock::Create(context, "cond", _fun);
 
+        // գեներացնել պայմանի օպերտորը 
+        auto cnd = emitExpression(_if->condition);
+        
+        // անցում ըստ պայմանի
+        builder.CreateCondBr(cnd, _tbb, _cbb);
+
+        placeBlock(_fun, _tbb);
         builder.SetInsertPoint(_tbb);
         emitStatement(_if->decision);
+        auto __e = builder.CreateBr(_begin);
+        _toend.push_back(__e);
 
+        placeBlock(_fun, _cbb);
+        builder.SetInsertPoint(_cbb);
+        
         // հաջորդ բլոկի մշակում
         sp = _if->alternative;
     }
-
+    
     // կա՞ արդյոք else-բլոկ
-    if( nullptr != sp ) {
-        auto _ebb = llvm::BasicBlock::Create(context, "merge", _fun);
-        builder.CreateBr(_ebb);
-        builder.SetInsertPoint(_mbb);
+    if( nullptr != sp )
         emitStatement(sp);
-        builder.CreateBr(_ebb);
-        builder.SetInsertPoint(_ebb);
-    }
-    else {
-        builder.CreateBr(_mbb);
-        builder.SetInsertPoint(_mbb);
-    }
+
+    auto __e = builder.CreateBr(_begin);
+    _toend.push_back(__e);
+
+    auto _eif = llvm::BasicBlock::Create(context, "eif", _fun);
+    builder.SetInsertPoint(_eif);
+
+    for( auto bi : _toend )
+        bi->setSuccessor(0, _eif);
 }
 
 ///
@@ -497,25 +511,38 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
         case Operation::Eq:
             if( numopers )
                 ret = builder.CreateFCmpOEQ(lhs, rhs, "eq");
-            else {
+            else
                 ret = builder.CreateCall(LF("text_eq"), {lhs, rhs});
-                // TODO: ստանալ i1 տիպի արժեք
-            }
             break;
         case Operation::Ne:
-            ret = builder.CreateFCmpONE(lhs, rhs, "ne");
+            if( numopers )
+                ret = builder.CreateFCmpONE(lhs, rhs, "ne");
+            else
+                ret = builder.CreateCall(LF("text_ne"), {lhs, rhs});
             break;
         case Operation::Gt:
-            ret = builder.CreateFCmpOGT(lhs, rhs, "gt");
+            if( numopers )
+                ret = builder.CreateFCmpOGT(lhs, rhs, "gt");
+            else
+                ret = builder.CreateCall(LF("text_gt"), {lhs, rhs});
             break;
         case Operation::Ge:
-            ret = builder.CreateFCmpOGE(lhs, rhs, "ge");
+            if( numopers )
+                ret = builder.CreateFCmpOGE(lhs, rhs, "ge");
+            else
+                ret = builder.CreateCall(LF("text_ge"), {lhs, rhs});
             break;
         case Operation::Lt:
-            ret = builder.CreateFCmpOLT(lhs, rhs, "lt");
+            if( numopers )
+                ret = builder.CreateFCmpOLT(lhs, rhs, "lt");
+            else
+                ret = builder.CreateCall(LF("text_lt"), {lhs, rhs});
             break;
         case Operation::Le:
-            ret = builder.CreateFCmpOLE(lhs, rhs, "le");
+            if( numopers )
+                ret = builder.CreateFCmpOLE(lhs, rhs, "le");
+            else
+                ret = builder.CreateCall(LF("text_le"), {lhs, rhs});
             break;
         case Operation::And:
             ret = builder.CreateAnd(lhs, rhs, "and");
