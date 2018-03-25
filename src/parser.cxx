@@ -26,12 +26,12 @@ Parser::Parser( const std::string& filename )
 {
     builtins = {
         // թվային ֆունկցիաներ
-        {"SQR", {{"a"}, true}},
-        {"SIN", {{"a"}, true}},
+        BuiltIn{"SQR", {"a"}, true},
+        BuiltIn{"SIN", {"a"}, true},
 
         // տեքստային ֆունկցիաներ
-        {"MID$", {{"a$", "b", "c"}, true}},
-        {"STR$", {{"a"}, true}}
+        BuiltIn{"MID$", {"a$", "b", "c"}, true},
+        BuiltIn{"STR$", {"a"}, true}
     };
 
     module = std::make_shared<Program>(filename);
@@ -340,7 +340,7 @@ StatementPtr Parser::parseCall()
 
     auto caller = std::make_shared<Call>(nullptr, args);
 
-    auto callee = getSubroutine(name, false);
+    auto callee = getSubroutine(name);
     if( nullptr == callee )
         unresolved[name].push_back(caller->subrcall);
 
@@ -485,7 +485,7 @@ ExpressionPtr Parser::parseFactor()
             auto applyer = std::make_shared<Apply>(nullptr, args);
             applyer->type = typeOf(name);
 
-            auto callee = getSubroutine(name, true);
+            auto callee = getSubroutine(name);
             if( nullptr == callee )
                 unresolved[name].push_back(applyer);
 
@@ -548,34 +548,31 @@ VariablePtr Parser::getVariable( const std::string& nm, bool rval )
     return varp;
 }
 
-//
-SubroutinePtr Parser::getSubroutine( const std::string& nm, bool func )
+///
+SubroutinePtr Parser::getSubroutine( const std::string& nm )
 {
     // որոնել տրված անունով ենթածրագիրը արդեն սահմանվածների մեջ
-    auto subrit = std::find_if(module->members.begin(), module->members.end(),
-        [&nm](auto sp)->bool { return equalNames(sp->name, nm); });
+    for( auto si : module->members )
+        if( equalNames(si->name, nm) )
+            return si;
 
-    // TODO: վերանայել, ստուգել
-    // եթե դեռ սահմանված չէ, ...
-    if( subrit == module->members.end() ) {
-        // ... արդյո՞ք դա ներդրված ենթածրագիր է
-        auto bi = builtins.find(nm);
-        if( builtins.end() == bi )
-            return nullptr;
+    // որոնել 
+    for( auto& bi : builtins )
+        if( std::get<0>(bi) == nm ) {
+            // հայտարարել ներդրված ենթածրագիր
+            auto sre = std::make_shared<Subroutine>(std::get<0>(bi), std::get<1>(bi));
+            sre->isBuiltIn = true;
+            sre->hasValue = std::get<2>(bi);
+            module->members.push_back(sre);
+            return sre;        
+        }
 
-        // հայտարարել ներդրված ենթածրագիր
-        auto sre = std::make_shared<Subroutine>(nm, bi->second.first);
-        sre->isBuiltIn = true;
-        sre->hasValue = bi->second.second;
-        module->members.push_back(sre);
-        return sre;
-    }
+    return nullptr;
 
-    // եթե հարցումը ֆունկցիայի կանչի համար է, բայց ենթածրագիրն արժեք չի վերադարձնում
-    if( func && !(*subrit)->hasValue )
-        throw ParseError(nm + " պրոցեդուրան արժեք չի վերադարձնում։");
-
-    return *subrit;
+// TODO: այս ստուգումը տեղափոխել TypeChecker
+//    // եթե հարցումը ֆունկցիայի կանչի համար է, բայց ենթածրագիրն արժեք չի վերադարձնում
+//    if( func && !(*subrit)->hasValue )
+//        throw ParseError(nm + " պրոցեդուրան արժեք չի վերադարձնում։");
 }
 
 //

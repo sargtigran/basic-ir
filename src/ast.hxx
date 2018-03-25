@@ -76,11 +76,11 @@ public:
 
 public:
     Number( double vl )
-		: value(vl)
-	{
-		kind = NodeKind::Number;
-		type = Type::Number;
-	}
+        : value(vl)
+    {
+        kind = NodeKind::Number;
+        type = Type::Number;
+    }
 };
 using NumberPtr = std::shared_ptr<Number>;
 
@@ -91,11 +91,11 @@ public:
 
 public:
     Text( const std::string& vl )
-		: value(vl)
-	{
-		kind = NodeKind::Text;
-		type = Type::Text;
-	}
+        : value(vl)
+    {
+        kind = NodeKind::Text;
+        type = Type::Text;
+    }
 };
 using TextPtr = std::shared_ptr<Text>;
   
@@ -106,11 +106,11 @@ public:
 
 public:
     Variable( const std::string& nm )
-		: name(nm)
-	{
-		kind = NodeKind::Variable;
-		type = typeOf(name);
-	}
+        : name(nm)
+    {
+        kind = NodeKind::Variable;
+        type = typeOf(name);
+    }
 };
 using VariablePtr = std::shared_ptr<Variable>;
   
@@ -146,11 +146,11 @@ public:
 
 public:
     Unary( Operation op, ExpressionPtr ex )
-		: opcode(op), subexpr(ex)
-	{
-		kind = NodeKind::Unary;
-		type = Type::Number;
-	}
+        : opcode(op), subexpr(ex)
+    {
+        kind = NodeKind::Unary;
+        type = Type::Number;
+    }
 };
 using UnaryPtr = std::shared_ptr<Unary>;
   
@@ -163,10 +163,10 @@ public:
 
 public:
     Binary( Operation op, ExpressionPtr exo, ExpressionPtr exi )
-		: opcode(op), subexpro(exo), subexpri(exi)
-	{
-		kind = NodeKind::Binary;
-	}
+        : opcode(op), subexpro(exo), subexpri(exi)
+    {
+        kind = NodeKind::Binary;
+    }
 };
 using BinaryPtr = std::shared_ptr<Binary>;
   
@@ -181,10 +181,10 @@ public:
 
 public:
     Apply( SubroutinePtr sp, const std::vector<ExpressionPtr>& ags )
-		: procptr(sp), arguments(ags)
-	{
-		kind = NodeKind::Apply;
-	}
+        : procptr(sp), arguments(ags)
+    {
+        kind = NodeKind::Apply;
+    }
 };
 using ApplyPtr = std::shared_ptr<Apply>;
   
@@ -199,9 +199,9 @@ public:
 
 public:
     Sequence()
-	{
-		kind = NodeKind::Sequence;
-	}
+    {
+        kind = NodeKind::Sequence;
+    }
 };
 using SequencePtr = std::shared_ptr<Sequence>;
 
@@ -213,10 +213,10 @@ public:
 
 public:
     Input( const std::string& pr, VariablePtr vp )
-		: prompt(pr), varptr(vp)
-	{
-		kind = NodeKind::Input;
-	}
+        : prompt(pr), varptr(vp)
+    {
+        kind = NodeKind::Input;
+    }
 };
 using InputPtr = std::shared_ptr<Input>;
   
@@ -227,10 +227,10 @@ public:
 
 public:
     Print( ExpressionPtr ex )
-		: expr(ex)
-	{
-		kind = NodeKind::Print;
-	}
+        : expr(ex)
+    {
+        kind = NodeKind::Print;
+    }
 };
 using PrintPtr = std::shared_ptr<Print>;
   
@@ -242,10 +242,10 @@ public:
 
 public:
     Let( VariablePtr vp, ExpressionPtr ex )
-		: varptr(vp), expr(ex)
-	{
-		kind = NodeKind::Let;
-	}
+        : varptr(vp), expr(ex)
+    {
+        kind = NodeKind::Let;
+    }
 };
 using LetPtr = std::shared_ptr<Let>;
 
@@ -258,10 +258,10 @@ public:
 
 public:
     If( ExpressionPtr co, StatementPtr de, StatementPtr al = nullptr )
-		: condition(co), decision(de), alternative(al)
-	{
-		kind = NodeKind::If;
-	}
+        : condition(co), decision(de), alternative(al)
+    {
+        kind = NodeKind::If;
+    }
 };
 using IfPtr = std::shared_ptr<If>;
   
@@ -273,10 +273,10 @@ public:
 
 public:
     While( ExpressionPtr co, StatementPtr bo )
-		: condition(co), body(bo)
-	{
-		kind = NodeKind::While;
-	}
+        : condition(co), body(bo)
+    {
+        kind = NodeKind::While;
+    }
 };
 using WhilePtr = std::shared_ptr<While>;
   
@@ -292,10 +292,10 @@ public:
 public:
     For( VariablePtr pr, ExpressionPtr be, ExpressionPtr en,
          NumberPtr st, StatementPtr bo )
-		: parameter(pr), begin(be), end(en), step(st), body(bo)
-	{
-		kind = NodeKind::For;
-	}
+        : parameter(pr), begin(be), end(en), step(st), body(bo)
+    {
+        kind = NodeKind::For;
+    }
 };
 using ForPtr = std::shared_ptr<For>;
 
@@ -306,10 +306,10 @@ public:
 
 public:
     Call( SubroutinePtr sp, const std::vector<ExpressionPtr>& as )
-		: subrcall(std::make_shared<Apply>(sp, as))
-	{
-		kind = NodeKind::Call;
-	}
+        : subrcall(std::make_shared<Apply>(sp, as))
+    {
+        kind = NodeKind::Call;
+    }
 };
 using CallPtr = std::shared_ptr<Call>;
 
@@ -332,10 +332,10 @@ public:
 
 public:
     Subroutine( const std::string& nm, const std::vector<std::string>& ps )
-		: name(nm), parameters(ps)
-	{
-		kind = NodeKind::Subroutine;
-	}
+        : name(nm), parameters(ps)
+    {
+        kind = NodeKind::Subroutine;
+    }
 };
 
 //! @brief Ծրագիր
@@ -346,10 +346,10 @@ public:
 
 public:
     Program( const std::string& fn )
-		: filename(fn)
-	{
-		kind = NodeKind::Program;
-	}
+        : filename(fn)
+    {
+        kind = NodeKind::Program;
+    }
 };
 using ProgramPtr = std::shared_ptr<Program>;
 } // basic
