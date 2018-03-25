@@ -261,9 +261,9 @@ void IrEmitter::emitIf( IfPtr sif )
     // ընթացիկ ֆունկցիայի դուրս բերում
     auto _fun = builder.GetInsertBlock()->getParent();
 
-    std::vector<llvm::BranchInst*> _toend;
+    auto _eif = llvm::BasicBlock::Create(context, "");
     
-    auto _begin = llvm::BasicBlock::Create(context, "cond", _fun);
+    auto _begin = llvm::BasicBlock::Create(context, "", _fun);
     builder.CreateBr(_begin);
 
     builder.SetInsertPoint(_begin);
@@ -271,20 +271,21 @@ void IrEmitter::emitIf( IfPtr sif )
     StatementPtr sp = sif;
     while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
         // then֊բլոկ
-        auto _tbb = llvm::BasicBlock::Create(context, "then", _fun);
-        auto _cbb = llvm::BasicBlock::Create(context, "cond", _fun);
+        auto _tbb = llvm::BasicBlock::Create(context, "", _fun);
+        // else-բլոկ
+        auto _cbb = llvm::BasicBlock::Create(context, "", _fun);
 
-        // գեներացնել պայմանի օպերտորը 
+        // գեներացնել պայմանը 
         auto cnd = emitExpression(_if->condition);
         
         // անցում ըստ պայմանի
         builder.CreateCondBr(cnd, _tbb, _cbb);
 
+        // 
         placeBlock(_fun, _tbb);
         builder.SetInsertPoint(_tbb);
         emitStatement(_if->decision);
-        auto __e = builder.CreateBr(_begin);
-        _toend.push_back(__e);
+        builder.CreateBr(_eif);
 
         placeBlock(_fun, _cbb);
         builder.SetInsertPoint(_cbb);
@@ -296,15 +297,12 @@ void IrEmitter::emitIf( IfPtr sif )
     // կա՞ արդյոք else-բլոկ
     if( nullptr != sp )
         emitStatement(sp);
+    
+    builder.CreateBr(_eif);
 
-    auto __e = builder.CreateBr(_begin);
-    _toend.push_back(__e);
-
-    auto _eif = llvm::BasicBlock::Create(context, "eif", _fun);
+    _fun->getBasicBlockList().push_back(_eif);
+    //placeBlock(_fun, _eif);
     builder.SetInsertPoint(_eif);
-
-    for( auto bi : _toend )
-        bi->setSuccessor(0, _eif);
 }
 
 ///
