@@ -209,7 +209,7 @@ StatementPtr Parser::parseLet()
 StatementPtr Parser::parseInput()
 {
     match(Token::Input);
-    std::string prom = "";
+    std::string prom = "?";
     if( lookahead.is(Token::Text) ) {
         prom = lookahead.value;
         match(Token::Text);

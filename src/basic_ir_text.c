@@ -8,8 +8,9 @@
 */
 
 /**/
-char *text_input()
+char *text_input(const char* prompt)
 {
+  printf("%s ", prompt);
   char buffer[1024] = { 0 };
   fgets(buffer, 1024, stdin);
   char *res = malloc(1 + strlen(buffer));

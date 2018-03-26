@@ -233,17 +233,14 @@ void IrEmitter::emitLet( LetPtr let )
 ///
 void IrEmitter::emitInput( InputPtr inp )
 {
-    if( !inp->prompt.empty() ) {
-        // TODO: գեներացնել հրավերքի արտածումը
-    }
-    
-    // TODO: կարգի բերել
+    auto _probj = std::make_shared<Text>(inp->prompt);
+    auto _pref = emitText(_probj);
     if( Type::Text == inp->varptr->type ) {
-        auto _inp = builder.CreateCall(LF("text_input"), {});
+        auto _inp = builder.CreateCall(LF("text_input"), {_pref});
         builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
     }
     else if( Type::Number == inp->varptr->type ) {
-        auto _inp = builder.CreateCall(LF("number_input"), {});
+        auto _inp = builder.CreateCall(LF("number_input"), {_pref});
         builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
     }
 }
@@ -601,7 +598,7 @@ void IrEmitter::prepareLibrary()
 
     // տեքստային ֆունկցիաներ
     library["text_clone"] = llvm::FunctionType::get(_T, {_T}, false);
-    library["text_input"] = llvm::FunctionType::get(_T, {}, false);
+    library["text_input"] = llvm::FunctionType::get(_T, {_T}, false);
     library["text_print"] = llvm::FunctionType::get(_V, {_T}, false);
     library["text_conc"] = llvm::FunctionType::get(_T, {_T, _T}, false);
     library["text_mid"] = llvm::FunctionType::get(_T, {_T, _N, _N}, false);
@@ -614,7 +611,7 @@ void IrEmitter::prepareLibrary()
     library["text_le"] = llvm::FunctionType::get(_B, {_T, _T}, false);
 
     // թվային ֆունկցիաներ
-    library["number_input"] = llvm::FunctionType::get(_N, {}, false);
+    library["number_input"] = llvm::FunctionType::get(_N, {_T}, false);
     library["number_print"] = llvm::FunctionType::get(_V, {_N}, false);
 
     // հիշողության ֆունկցիաներ
