@@ -255,15 +255,16 @@ void IrEmitter::emitPrint( PrintPtr pri )
     // print_text() կամ print_number()
 }
 
-// TODO: լրացնել ուղղել
+///
 void IrEmitter::emitIf( IfPtr sif )
 {
     // ընթացիկ ֆունկցիայի դուրս բերում
     auto _fun = builder.GetInsertBlock()->getParent();
 
-    auto _eif = llvm::BasicBlock::Create(context, "");
+    // ճյուղավորման ամենավերջին բլոկը
+    auto _eif = llvm::BasicBlock::Create(context, "", _fun);
     
-    auto _begin = llvm::BasicBlock::Create(context, "", _fun);
+    auto _begin = llvm::BasicBlock::Create(context, "begin", _fun, _eif);
     builder.CreateBr(_begin);
 
     builder.SetInsertPoint(_begin);
@@ -271,9 +272,9 @@ void IrEmitter::emitIf( IfPtr sif )
     StatementPtr sp = sif;
     while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
         // then֊բլոկ
-        auto _tbb = llvm::BasicBlock::Create(context, "", _fun);
+        auto _tbb = llvm::BasicBlock::Create(context, "", _fun, _eif);
         // else-բլոկ
-        auto _cbb = llvm::BasicBlock::Create(context, "", _fun);
+        auto _cbb = llvm::BasicBlock::Create(context, "", _fun, _eif);
 
         // գեներացնել պայմանը 
         auto cnd = emitExpression(_if->condition);
@@ -281,12 +282,13 @@ void IrEmitter::emitIf( IfPtr sif )
         // անցում ըստ պայմանի
         builder.CreateCondBr(cnd, _tbb, _cbb);
 
-        // 
+        // then-ի հրամաններ
         placeBlock(_fun, _tbb);
         builder.SetInsertPoint(_tbb);
         emitStatement(_if->decision);
         builder.CreateBr(_eif);
 
+        // պատրաստվել հաջորդ բլոկին
         placeBlock(_fun, _cbb);
         builder.SetInsertPoint(_cbb);
         
@@ -300,8 +302,7 @@ void IrEmitter::emitIf( IfPtr sif )
     
     builder.CreateBr(_eif);
 
-    _fun->getBasicBlockList().push_back(_eif);
-    //placeBlock(_fun, _eif);
+    placeBlock(_fun, _eif);
     builder.SetInsertPoint(_eif);
 }
 
