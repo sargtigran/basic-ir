@@ -473,12 +473,15 @@ ExpressionPtr Parser::parseFactor()
         if( lookahead.is(Token::LeftPar) ) {
             std::vector<ExpressionPtr> args;
             match(Token::LeftPar);
-            auto exo = parseExpression();
-            args.push_back(exo);
-            while( lookahead.is(Token::Comma) ) {
-                match(Token::Comma);
-                exo = parseExpression();
+            if( lookahead.is({ Token::Number, Token::Text, Token::Identifier, 
+                               Token::Sub, Token::Not, Token::LeftPar }) ) {
+                auto exo = parseExpression();
                 args.push_back(exo);
+                while( lookahead.is(Token::Comma) ) {
+                    match(Token::Comma);
+                    exo = parseExpression();
+                    args.push_back(exo);
+                }
             }
             match(Token::RightPar);
 

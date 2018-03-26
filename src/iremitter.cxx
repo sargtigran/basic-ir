@@ -222,7 +222,7 @@ void IrEmitter::emitLet( LetPtr let )
     auto addr = varaddresses[let->varptr->name];
     
     if( Type::Text == let->varptr->type ) {
-        builder.CreateCall(LF("free"), addr);
+        builder.CreateCall(LF("free"), {addr});
         if( !createsTempText(let->expr) )
             val = builder.CreateCall(LF("text_clone"), { val });
     }
@@ -248,8 +248,16 @@ void IrEmitter::emitInput( InputPtr inp )
 ///
 void IrEmitter::emitPrint( PrintPtr pri )
 {
-    // կանչել գրադարանային ֆունկցիա
-    // print_text() կամ print_number()
+    // արտածվող արտահայտության կոդը
+    auto _expr = emitExpression(pri->expr);
+    
+    if( Type::Text == pri->expr->type ) {
+        builder.CreateCall(LF("text_print"), {_expr});
+        if( createsTempText(pri->expr) )
+            builder.CreateCall(LF("free"), {_expr});
+    }
+    else if( Type::Number == pri->expr->type )
+        builder.CreateCall(LF("number_print"), {_expr});
 }
 
 ///
