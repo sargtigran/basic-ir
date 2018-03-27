@@ -321,13 +321,13 @@ void IrEmitter::emitWhile( WhilePtr swhi )
     auto _end = llvm::BasicBlock::Create(context, "", _fun);
 
     builder.CreateBr(_cond);
-    
+
     placeBlock(_fun, _cond);
     builder.SetInsertPoint(_cond);
     
     auto coex = emitExpression(swhi->condition);
-    auto one = llvm::ConstantFP::get(builder.getDoubleTy(), 1.0);
-    coex = builder.CreateFCmpOEQ(coex, one);
+    //auto one = llvm::ConstantFP::get(builder.getDoubleTy(), 1.0);
+    //coex = builder.CreateFCmpOEQ(coex, one);
     builder.CreateCondBr(coex, _body, _end);
 
     placeBlock(_fun, _body);
