@@ -11,6 +11,9 @@
 #include <sstream>
 #include <list>
 
+/* DEBUG */
+#define __dump(_v_) (_v_)->print(llvm::errs(), false)
+
 /*
 // աջակցող գրադարանը բեռնելու համար
 
@@ -233,16 +236,21 @@ void IrEmitter::emitLet( LetPtr let )
 ///
 void IrEmitter::emitInput( InputPtr inp )
 {
+    // ստանալ հրավերքի տեքստի հասցեն
     auto _probj = std::make_shared<Text>(inp->prompt);
     auto _pref = emitText(_probj);
-    if( Type::Text == inp->varptr->type ) {
-        auto _inp = builder.CreateCall(LF("text_input"), {_pref});
-        builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
-    }
-    else if( Type::Number == inp->varptr->type ) {
-        auto _inp = builder.CreateCall(LF("number_input"), {_pref});
-        builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
-    }
+
+    // հաշվարկել ներմուծող ֆունկցիան
+    llvm::Constant* input_f = nullptr;
+    if( Type::Text == inp->varptr->type )
+        input_f = LF("text_input");
+    else if( Type::Number == inp->varptr->type )
+        input_f = LF("number_input");
+
+    // գեներացնել ներմուծող ֆունկցիայի կանչ
+    auto _inp = builder.CreateCall(input_f, {_pref});
+    // ներմուծված արժեքը վերագրել համապատասխան հասցեին
+    builder.CreateStore(_inp, varaddresses[inp->varptr->name]);
 }
 
 ///
@@ -269,10 +277,8 @@ void IrEmitter::emitIf( IfPtr sif )
     // ճյուղավորման ամենավերջին բլոկը
     auto _eif = llvm::BasicBlock::Create(context, "", _fun);
     
-    auto _begin = llvm::BasicBlock::Create(context, "begin", _fun, _eif);
-    builder.CreateBr(_begin);
-
-    builder.SetInsertPoint(_begin);
+    auto _first = llvm::BasicBlock::Create(context, "", _fun, _eif);
+    setCurrentBlock(_fun, _first);
     
     StatementPtr sp = sif;
     while( auto _if = std::dynamic_pointer_cast<If>(sp) ) {
@@ -288,14 +294,13 @@ void IrEmitter::emitIf( IfPtr sif )
         builder.CreateCondBr(cnd, _tbb, _cbb);
 
         // then-ի հրամաններ
-        placeBlock(_fun, _tbb);
-        builder.SetInsertPoint(_tbb);
+        setCurrentBlock(_fun, _tbb);
+
         emitStatement(_if->decision);
         builder.CreateBr(_eif);
 
         // պատրաստվել հաջորդ բլոկին
-        placeBlock(_fun, _cbb);
-        builder.SetInsertPoint(_cbb);
+        setCurrentBlock(_fun, _cbb);
         
         // հաջորդ բլոկի մշակում
         sp = _if->alternative;
@@ -305,43 +310,39 @@ void IrEmitter::emitIf( IfPtr sif )
     if( nullptr != sp )
         emitStatement(sp);
     
-    builder.CreateBr(_eif);
-
-    placeBlock(_fun, _eif);
-    builder.SetInsertPoint(_eif);
+    setCurrentBlock(_fun, _eif);
 }
 
 ///
 void IrEmitter::emitWhile( WhilePtr swhi )
 {
+    // ընթացիկ ֆունկցիան
     auto _fun = builder.GetInsertBlock()->getParent();
-    
+
+    // ցիկլի պայմանի, մարմնի և ավարտի բլոկները
     auto _cond = llvm::BasicBlock::Create(context, "", _fun);
     auto _body = llvm::BasicBlock::Create(context, "", _fun);
     auto _end = llvm::BasicBlock::Create(context, "", _fun);
 
-    builder.CreateBr(_cond);
+    setCurrentBlock(_fun, _cond);
 
-    placeBlock(_fun, _cond);
-    builder.SetInsertPoint(_cond);
-    
+    // գեներացնել կրկնման պայմանը
     auto coex = emitExpression(swhi->condition);
-    //auto one = llvm::ConstantFP::get(builder.getDoubleTy(), 1.0);
-    //coex = builder.CreateFCmpOEQ(coex, one);
     builder.CreateCondBr(coex, _body, _end);
 
-    placeBlock(_fun, _body);
-    builder.SetInsertPoint(_body);
+    setCurrentBlock(_fun, _body);
+
+    // գեներացնել ցիկլի մարմինը
     emitStatement(swhi->body);
     builder.CreateBr(_cond);
 
-    placeBlock(_fun, _end);
-    builder.SetInsertPoint(_end);
+    setCurrentBlock(_fun, _end);
 }
 
 ///
 void IrEmitter::emitFor( ForPtr sfor )
 {
+    // ընթացիկ ֆունկցիան
     auto _fun = builder.GetInsertBlock()->getParent();
 
     auto _cond = llvm::BasicBlock::Create(context, "", _fun);
@@ -358,8 +359,7 @@ void IrEmitter::emitFor( ForPtr sfor )
     // քայլը հաստատուն է
     auto _step = llvm::ConstantFP::get(builder.getDoubleTy(), sfor->step->value);
     
-    placeBlock(_fun, _cond);
-    builder.SetInsertPoint(_cond);
+    setCurrentBlock(_fun, _cond);
 
     // եթե պարամետրի արժեքը >= (կամ <=, եթե քայլը բացասական է)
     // վերջնականից, ապա ավարտել ցիկլը
@@ -374,9 +374,9 @@ void IrEmitter::emitFor( ForPtr sfor )
         builder.CreateCondBr(coex, _body, _end);
     }
 
+    setCurrentBlock(_fun, _body);
+
     // գեներացնել մարմինը
-    placeBlock(_fun, _body);
-    builder.SetInsertPoint(_body);
     emitStatement(sfor->body);
 
     // պարամետրի արժեքին գումարել քայլի արժեքը
@@ -387,13 +387,13 @@ void IrEmitter::emitFor( ForPtr sfor )
     // կրկնել ցիկլը
     builder.CreateBr(_cond);
 
-    placeBlock(_fun, _end);
-    builder.SetInsertPoint(_end);
+    setCurrentBlock(_fun, _end);
 }
 
 ///
 void IrEmitter::emitCall( CallPtr cal )
 {
+    // պրոցեդուրայի կանչը նույն ֆունկցիայի կիրառումն է
     emitApply(cal->subrcall);
 }
 
@@ -448,13 +448,16 @@ llvm::Value* IrEmitter::emitText( TextPtr txt )
 ///
 llvm::Constant* IrEmitter::emitNumber( NumberPtr num )
 {
+    // գեներացնել թվային հաստատուն
     return llvm::ConstantFP::get(builder.getDoubleTy(), num->value);
 }
 
 ///
 llvm::LoadInst* IrEmitter::emitLoad( VariablePtr var )
 {
+    // ստանալ փոփոխականի հասցեն ...
     llvm::Value* vaddr = varaddresses[var->name];
+    // ... և գեներացնել արժեքի բեռնման հրահանգ
     return builder.CreateLoad(vaddr, var->name);
 }
 
@@ -483,7 +486,7 @@ llvm::Value* IrEmitter::emitApply( ApplyPtr apy )
     return calv;
 }
 
-/**/
+///
 llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
 {
     llvm::Value* lhs = emitExpression(bin->subexpro);
@@ -510,7 +513,7 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
             ret = builder.CreateFRem(lhs, rhs, "rem");
             break;
         case Operation::Pow:
-            assert("POW operator is not handled yet");
+            ret = builder.CreateCall(LF("pow"), {lhs, rhs});
             break;
         case Operation::Eq:
             if( numopers )
@@ -555,7 +558,7 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
             ret = builder.CreateOr(lhs, rhs, "or");
             break;
         case Operation::Conc:
-            ret = builder.CreateCall(LF("text_conc"), { lhs, rhs });
+            ret = builder.CreateCall(LF("text_conc"), {lhs, rhs});
             break;
         default:
             break;
@@ -567,33 +570,39 @@ llvm::Value* IrEmitter::emitBinary( BinaryPtr bin )
 ///
 llvm::Value* IrEmitter::emitUnary( UnaryPtr un )
 {
+    // գեներացնել ենթաարտահայտությունը
     auto val = emitExpression(un->subexpr);
-    llvm::Value* res = nullptr;
+
+    // ունար մինուս (բացասում)
+    if( Operation::Sub == un->opcode )
+        return builder.CreateFNeg(val, "neg");
+
+    // տրամաբանական արժեքի ժխտում
+    if( Operation::Not == un->opcode )
+        return builder.CreateNot(val, "not");
     
-    switch( un->opcode ) {
-        case Operation::Sub:
-            res = builder.CreateFNeg(val, "neg");
-            break;
-        case Operation::Not:
-            res = builder.CreateNot(val, "not");
-            break;
-        default:
-            break;
-    }
-    
-    return res;
+    return val;
 }
 
 ///
-void IrEmitter::placeBlock( llvm::Function* fun, llvm::BasicBlock* bl )
+void IrEmitter::setCurrentBlock( llvm::Function* fun, llvm::BasicBlock* bl )
 {
+    auto _cbb = builder.GetInsertBlock();
+
+    if( nullptr != _cbb && nullptr == _cbb->getTerminator() )
+        builder.CreateBr(bl);
+    
     builder.ClearInsertionPoint();
-    auto _ib = builder.GetInsertBlock();
-    if( nullptr != _ib && nullptr != _ib->getParent() )
-        fun->getBasicBlockList().insertAfter(_ib->getIterator(), bl);
-    else
-        fun->getBasicBlockList().push_back(bl);
-    // TODO: builder.SerInsertPoint(bl);
+
+    // auto _ib = builder.GetInsertBlock();
+    // if( nullptr != _ib && nullptr != _ib->getParent() )
+    //     fun->getBasicBlockList().insertAfter(_ib->getIterator(), bl);
+    // else
+    //     fun->getBasicBlockList().push_back(bl);
+    
+    fun->getBasicBlockList().push_back(bl);
+    
+    builder.SetInsertPoint(bl);
 }
 
 ///
@@ -621,6 +630,10 @@ void IrEmitter::prepareLibrary()
     // թվային ֆունկցիաներ
     library["number_input"] = llvm::FunctionType::get(_N, {_T}, false);
     library["number_print"] = llvm::FunctionType::get(_V, {_N}, false);
+
+    // մաթեմատիկական ֆունկցիաներ
+    library["pow"] = llvm::FunctionType::get(_N, {_N, _N}, false);
+    library["sqrt"] = llvm::FunctionType::get(_N, {_N}, false);
 
     // հիշողության ֆունկցիաներ
     library["malloc"] = llvm::FunctionType::get(_T, {builder.getInt64Ty()}, false);

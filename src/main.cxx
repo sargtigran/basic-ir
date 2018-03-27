@@ -23,7 +23,7 @@ int main( int argc, char* argv[] )
 {
     std::cout << "Parsing ..." << std::endl;
 
-    basic::Parser parser("../cases/case16.bas");
+    basic::Parser parser("../cases/case12.bas");
     auto prog = parser.parse();
 
     /*

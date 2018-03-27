@@ -51,7 +51,7 @@ private:
     llvm::Type* llvmType( Type type );
 
     //! @brief Ճշտում է հերթական BasicBlock-ի դիրքը։
-    void placeBlock( llvm::Function* fun, llvm::BasicBlock* bl );
+    void setCurrentBlock( llvm::Function* fun, llvm::BasicBlock* bl );
 
     void prepareLibrary();
     llvm::Constant* LF( const String& name );
