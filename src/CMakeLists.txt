@@ -12,6 +12,7 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_executable(basic-ir
 	main.cxx
+	compiler.cxx
 	ast.cxx
 	lexeme.cxx
 	scanner.cxx
